@@ -1,0 +1,35 @@
+# Supabase Configuration
+# This file configures the Supabase project
+
+[project]
+# Project reference from Supabase
+project_id = "xxqeiwzfvexuyftmtssy"
+
+# Region where your Supabase instance is hosted
+region = "us-east-1"
+
+[api]
+enabled = true
+max_body_size_bytes = 524288
+
+[db]
+# Database version
+major_version = 15
+
+[auth]
+enable_signup = true
+enable_anonymous_signups = true
+enable_confirmable_signup = true
+enable_email_confirmations = false
+enable_email_password_reset = true
+enable_email_link_signin = true
+
+[storage]
+enabled = true
+file_size_limit = 52428800
+
+[realtime]
+enabled = true
+
+[vector]
+enabled = false
