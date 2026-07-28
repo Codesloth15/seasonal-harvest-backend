@@ -32,17 +32,23 @@ The HTML report is generated under `coverage/` and is excluded from Git.
 |---|---|
 | `tests/config/cors.test.js` | Origin parsing, normalization, deduplication, and rejection behavior |
 | `tests/controller/auth.controller.test.js` | Sign-up, sign-in, recovery, reset, current user, logout, validation, and safe error mapping |
+| `tests/controller/category.controller.test.js` | Category list, lookup, create, update, delete, and not-found behavior |
 | `tests/middleware/auth.middleware.test.js` | Missing, invalid, expired, and valid bearer-token behavior |
+| `tests/middleware/role.middleware.test.js` | Missing profile, inactive account, denied role, and allowed role behavior |
+| `tests/model/category.model.test.js` | Category filtering, normalization, safe fields, validation, and authenticated writes |
+| `tests/migrations/catalog-migrations.test.js` | Brand/product constraints, relationships, RLS, policies, and least-privilege grants |
 | `tests/services/auth.service.test.js` | Supabase Auth calls, authenticated REST requests, errors, password update, and logout |
+| `tests/services/category.service.test.js` | Category use cases and typed not-found behavior |
+| `tests/services/inventory.service.test.js` | Inventory validation, authenticated writes, updates, and stock adjustment |
 
-The initial suite contains 31 passing tests. At creation, the covered modules report:
+The suite contains 71 passing tests. Coverage is enforced for the security-sensitive and refactored modules.
 
 | Metric | Coverage | Required threshold |
 |---|---:|---:|
-| Statements | 91.83% | 80% |
-| Branches | 78.12% | 75% |
-| Functions | 100% | 80% |
-| Lines | 92.90% | 80% |
+| Statements | 88.06% | 80% |
+| Branches | 79.31% | 75% |
+| Functions | 92.45% | 80% |
+| Lines | 91.28% | 80% |
 
 Coverage thresholds are defined in `vitest.config.js`. A coverage command fails when a threshold is not met.
 
@@ -83,4 +89,3 @@ Unit coverage is only the first layer. The project still needs:
 - Concurrency tests for stock adjustment and SKU creation.
 - Frontend/backend end-to-end tests for registration, login, email confirmation, and password recovery.
 - CI enforcement for linting, unit tests, coverage, migration validation, dependency audit, and secret scanning.
-

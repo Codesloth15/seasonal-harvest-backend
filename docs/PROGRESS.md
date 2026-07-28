@@ -15,16 +15,17 @@ A source file by itself does not qualify as `DONE`. The feature must be mounted,
 
 | Area | Done | None |
 |---|---:|---:|
-| Application foundation | 8 | 3 |
-| Authentication and security | 10 | 12 |
-| Inventory | 8 | 5 |
-| Products | 7 | 5 |
-| Brands | 6 | 4 |
-| Users and roles | 3 | 8 |
+| Application foundation | 11 | 1 |
+| Authentication and security | 13 | 9 |
+| Inventory | 10 | 3 |
+| Products | 9 | 3 |
+| Brands | 8 | 2 |
+| Categories | 8 | 2 |
+| Users and roles | 5 | 6 |
 | Orders and fulfillment | 0 | 10 |
 | Notifications and workflows | 0 | 6 |
-| Quality and operations | 3 | 12 |
-| **Total** | **45** | **65** |
+| Quality and operations | 4 | 11 |
+| **Total** | **68** | **53** |
 
 The counts are a planning snapshot and should be updated whenever a feature changes status.
 
@@ -32,17 +33,18 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 
 | Feature | Status | Evidence or required work |
 |---|---|---|
-| Express application startup | `DONE` | `app.js` creates and starts the server |
+| Express application composition | `DONE` | `app.js` configures middleware, routes, health checks, and errors without opening a port |
+| Process startup separation | `DONE` | `server.js` owns dependency readiness, port binding, and process signals |
+| Controller-service-repository boundaries | `DONE` | Active catalog and inventory modules use explicit delivery, use-case, and persistence layers |
 | JSON request parsing | `DONE` | Global Express JSON middleware is enabled |
-| URL-encoded request parsing | `DONE` | Enabled globally in `app.js` |
-| Cookie parsing | `DONE` | Cookie parser is installed globally |
 | Development CORS | `DONE` | Local frontend origins are allowed |
 | Environment-specific configuration | `DONE` | `.env.<NODE_ENV>.local` is loaded by `config/env.js` |
 | Central error response middleware | `DONE` | `error.middleware.js` returns JSON errors |
 | Environment-based CORS allowlist | `DONE` | `CORS_ORIGINS` is required, parsed, deduplicated, and strictly validated |
-| Request body size limits | `NONE` | Define explicit JSON and form payload limits |
+| Strict environment port validation | `DONE` | Startup requires an environment `PORT` integer between 1 and 65535; Railway injects it in production |
+| Request body size limits | `DONE` | JSON request bodies are limited to 100 KB |
 | API version lifecycle policy | `NONE` | Document version compatibility and deprecation rules |
-| Graceful shutdown | `NONE` | Close the HTTP server and clients on termination signals |
+| Graceful shutdown | `DONE` | `server.js` handles SIGTERM and SIGINT without coupling startup to the app |
 
 ## Authentication and security
 
@@ -60,9 +62,9 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | Password minimum length validation | `DONE` | Sign-up and reset require at least 8 characters |
 | Frontend password-reset URL | `NONE` | Set `FRONTEND_URL` in development and production environments |
 | Supabase reset redirect allowlist | `NONE` | Allow `<FRONTEND_URL>/reset-password` in Supabase Auth settings |
-| Role authorization middleware | `NONE` | Add reusable employee/admin/super-admin permission checks |
-| Protected product mutations | `NONE` | Require authentication and appropriate roles for POST/PUT/DELETE |
-| Protected brand mutations | `NONE` | Require authentication and appropriate roles for POST/PUT/DELETE |
+| Role authorization middleware | `DONE` | Active profiles and allowed roles are enforced by reusable middleware |
+| Protected product mutations | `DONE` | POST/PUT/DELETE require active admin or super-admin roles |
+| Protected brand mutations | `DONE` | POST/PUT/DELETE require active admin or super-admin roles |
 | Route-specific login throttling | `NONE` | Add stricter limits for sign-in, sign-up, and recovery endpoints |
 | Strong password policy | `NONE` | Add breached/common-password checks and an agreed policy |
 | Multi-factor authentication | `NONE` | Add enrollment, verification, recovery, and enforcement rules |
@@ -77,14 +79,14 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 |---|---|---|
 | List inventory | `DONE` | `GET /api/v1/inventory` |
 | Get inventory item | `DONE` | `GET /api/v1/inventory/:id` |
-| Create inventory item | `DONE` | Authenticated POST endpoint and Supabase model exist |
-| Update inventory item | `DONE` | Authenticated PUT endpoint exists |
+| Create inventory item | `DONE` | Authenticated POST forwards the caller token through service and repository layers |
+| Update inventory item | `DONE` | Authenticated PUT forwards the caller token for ownership RLS |
 | Adjust stock | `DONE` | Authenticated PATCH endpoint prevents negative stock |
 | Soft-delete inventory item | `DONE` | Authenticated DELETE sets `deleted_at` |
 | Inventory table migration | `DONE` | Migration includes constraints, indexes, and timestamps |
 | Inventory ownership RLS | `DONE` | Select/insert/update/delete policies are committed |
-| Reachable summary report route | `NONE` | Move `/reports/summary` before `/:id` in the router |
-| Reachable low-stock route | `NONE` | Move `/reports/low-stock` before `/:id` in the router |
+| Reachable summary report route | `DONE` | Static report route is registered before `/:id` |
+| Reachable low-stock route | `DONE` | Static report route is registered before `/:id` |
 | Atomic stock adjustment | `NONE` | Replace read-then-write logic with a transaction/RPC to prevent races |
 | Stock movement ledger | `NONE` | Record every adjustment with actor, reason, quantity, and timestamp |
 | Pagination | `NONE` | Add validated limit/cursor behavior for inventory lists |
@@ -100,8 +102,8 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | Soft-disable product | `DONE` | Delete changes `is_active` to false |
 | Product type validation | `DONE` | Supports `BRANDED` and `UNBRANDED` |
 | SKU generation | `DONE` | `sku.service.js` generates a brand/product sequence |
-| Product table migration | `NONE` | Commit the schema, constraints, indexes, RLS, and timestamps |
-| Product write authorization | `NONE` | Restrict mutations to approved roles |
+| Product table migration | `DONE` | Schema, constraints, indexes, RLS, grants, and timestamps are committed |
+| Product write authorization | `DONE` | Mutations use authenticated clients and admin role enforcement |
 | Collision-safe SKU generation | `NONE` | Add a unique constraint and atomic sequence/retry behavior |
 | Product pagination | `NONE` | Add validated limit/cursor behavior |
 | Product image upload | `NONE` | Add secure storage, MIME/size validation, and ownership rules |
@@ -116,10 +118,25 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | Update brand | `DONE` | Allowed-field filtering is implemented |
 | Soft-disable brand | `DONE` | Delete changes `is_active` to false |
 | Brand input validation | `DONE` | A trimmed name is required for creation |
-| Brand table migration | `NONE` | Commit schema, uniqueness, indexes, RLS, and timestamps |
-| Brand write authorization | `NONE` | Restrict mutations to approved roles |
+| Brand table migration | `DONE` | Schema, uniqueness, indexes, RLS, grants, and timestamps are committed |
+| Brand write authorization | `DONE` | Mutations use authenticated clients and admin role enforcement |
 | Duplicate brand prevention | `NONE` | Enforce normalized case-insensitive uniqueness in PostgreSQL |
 | Brand logo upload | `NONE` | Add secure storage and file validation |
+
+## Categories
+
+| Feature | Status | Evidence or required work |
+|---|---|---|
+| List categories | `DONE` | Public `GET /api/v1/categories` with search and sorting |
+| Get category | `DONE` | Public `GET /api/v1/categories/:id` |
+| Create category | `DONE` | Admin-protected POST endpoint |
+| Update category | `DONE` | Admin-protected PUT endpoint |
+| Delete category | `DONE` | Admin-protected DELETE endpoint |
+| Category table migration | `DONE` | Fields, constraints, indexes, and timestamp trigger are committed |
+| Category RLS | `DONE` | Public reads and admin-only writes are enforced in PostgreSQL |
+| Category unit tests | `DONE` | Controller, model, and role middleware behavior are tested |
+| Category pagination | `NONE` | Add validated limit/cursor behavior if the category count grows |
+| Category soft deletion | `NONE` | Decide whether referenced categories should be disabled instead of deleted |
 
 ## Users and roles
 
@@ -131,11 +148,11 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | Current profile API | `NONE` | Return application profile and role alongside Auth identity |
 | User administration API | `NONE` | List, view, activate, and deactivate users securely |
 | Role assignment API | `NONE` | Super-admin-only role changes with audit records |
-| Express role enforcement | `NONE` | Protect routes using the profile role |
+| Express role enforcement | `DONE` | Category mutations require admin or super-admin roles |
 | Profile update API | `NONE` | Allow validated updates to permitted personal fields |
 | Account deletion flow | `NONE` | Define soft deletion, retention, and Auth-user removal |
 | User search and pagination | `NONE` | Add admin-only validated querying |
-| Legacy Mongoose user removal/migration | `NONE` | Remove or migrate the inactive MongoDB implementation |
+| Legacy MongoDB/Upstash cleanup | `DONE` | Unmounted routes, controllers, models, config, and unused dependencies were removed |
 
 ## Orders and fulfillment
 
@@ -160,7 +177,7 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | Welcome or verification messaging | `NONE` | Configure Supabase templates and branding |
 | Low-stock notifications | `NONE` | Add thresholds, recipients, deduplication, and scheduling |
 | Order notifications | `NONE` | Notify users on confirmed status transitions |
-| Working background workflow integration | `NONE` | Replace or complete the inactive MongoDB/Upstash subsystem |
+| Working background workflow integration | `NONE` | Design a Supabase-compatible background job system when required |
 | Delivery retry and failure tracking | `NONE` | Add idempotent retry behavior and operational visibility |
 
 ## Quality and operations
@@ -169,12 +186,12 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 |---|---|---|
 | ESLint configuration | `DONE` | ESLint is configured and authentication files pass linting |
 | Versioned Supabase migrations | `DONE` | Inventory and auth/role migrations are committed |
-| Authentication and CORS unit tests | `DONE` | 31 Vitest tests pass with enforced coverage thresholds |
+| Automated unit tests and coverage | `DONE` | 71 Vitest tests pass with enforced statement, branch, function, and line thresholds |
 | API integration tests | `NONE` | Test authentication, authorization, CRUD, RLS, and errors |
 | End-to-end frontend/backend tests | `NONE` | Cover registration, login, recovery, and main business flows |
 | CI pipeline | `NONE` | Run lint, tests, migration checks, and secret scanning |
 | API schema/OpenAPI | `NONE` | Publish machine-readable request and response contracts |
-| Health/readiness endpoints | `NONE` | Add separate liveness and dependency readiness checks |
+| Health endpoint | `DONE` | Public `/health` endpoint supports Railway deployment health checks |
 | Structured logging | `NONE` | Add request IDs and machine-readable security-aware logs |
 | Error monitoring | `NONE` | Configure alerting without exposing secrets or personal data |
 | Metrics and alerting | `NONE` | Track latency, errors, auth failures, and rate limits |
@@ -190,7 +207,7 @@ Work should proceed in this order:
 1. Configure `FRONTEND_URL` and Supabase recovery redirects.
 2. Add role middleware and protect every write endpoint.
 3. Add product and brand migrations with constraints and RLS.
-4. Fix inventory report route ordering and make stock updates atomic.
+4. Make stock updates atomic.
 5. Add authentication, authorization, and RLS integration tests.
 6. Add security headers, stricter auth throttling, structured audit events, and secret scanning.
 7. Build users/roles administration.

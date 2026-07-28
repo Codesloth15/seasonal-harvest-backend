@@ -1,11 +1,12 @@
-import supabase from '../config/supabase.js';
+import supabase, { createAuthenticatedSupabaseClient } from '../config/supabase.js';
 
 // Table name
 export const INVENTORY_TABLE = 'inventory';
 
 // Create new inventory item
-export const createInventory = async (data) => {
-  const { data: result, error } = await supabase
+export const createInventory = async (data, accessToken) => {
+  const userClient = createAuthenticatedSupabaseClient(accessToken);
+  const { data: result, error } = await userClient
     .from(INVENTORY_TABLE)
     .insert([data])
     .select();
@@ -55,8 +56,9 @@ export const getInventoryById = async (id) => {
 };
 
 // Update inventory item
-export const updateInventory = async (id, updates) => {
-  const { data, error } = await supabase
+export const updateInventory = async (id, updates, accessToken) => {
+  const userClient = createAuthenticatedSupabaseClient(accessToken);
+  const { data, error } = await userClient
     .from(INVENTORY_TABLE)
     .update(updates)
     .eq('id', id)
@@ -69,7 +71,7 @@ export const updateInventory = async (id, updates) => {
 };
 
 // Adjust stock (add or subtract)
-export const adjustStock = async (id, adjustment) => {
+export const adjustStock = async (id, adjustment, accessToken) => {
   // Get current stock
   const item = await getInventoryById(id);
   const newQty = item.stock_qty + adjustment;
@@ -78,12 +80,13 @@ export const adjustStock = async (id, adjustment) => {
     throw new Error('Stock cannot go below 0');
   }
   
-  return updateInventory(id, { stock_qty: newQty });
+  return updateInventory(id, { stock_qty: newQty }, accessToken);
 };
 
 // Soft delete inventory item
-export const deleteInventory = async (id) => {
-  const { data, error } = await supabase
+export const deleteInventory = async (id, accessToken) => {
+  const userClient = createAuthenticatedSupabaseClient(accessToken);
+  const { data, error } = await userClient
     .from(INVENTORY_TABLE)
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', id)

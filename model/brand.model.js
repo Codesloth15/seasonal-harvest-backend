@@ -1,4 +1,4 @@
-import supabase from "../config/supabase.js";
+import supabase, { createAuthenticatedSupabaseClient } from "../config/supabase.js";
 
 export const BRAND_TABLE = "brands";
 
@@ -42,7 +42,7 @@ export const getBrandById = async (id) => {
   return data;
 };
 
-export const createBrand = async (brand) => {
+export const createBrand = async (brand, accessToken) => {
   const values = pickBrandFields(brand);
   if (!values.name || !values.name.trim()) {
     const error = new Error("name is required to create a brand.");
@@ -50,7 +50,8 @@ export const createBrand = async (brand) => {
     throw error;
   }
 
-  const { data, error } = await supabase
+  const userClient = createAuthenticatedSupabaseClient(accessToken);
+  const { data, error } = await userClient
     .from(BRAND_TABLE)
     .insert({ ...values, name: values.name.trim(), is_active: brand.is_active ?? true })
     .select()
@@ -61,7 +62,7 @@ export const createBrand = async (brand) => {
   return data;
 };
 
-export const updateBrand = async (id, updates) => {
+export const updateBrand = async (id, updates, accessToken) => {
   const values = pickBrandFields(updates);
   if (Object.keys(values).length === 0) {
     const error = new Error("Provide at least one valid brand field to update.");
@@ -69,7 +70,8 @@ export const updateBrand = async (id, updates) => {
     throw error;
   }
 
-  const { data, error } = await supabase
+  const userClient = createAuthenticatedSupabaseClient(accessToken);
+  const { data, error } = await userClient
     .from(BRAND_TABLE)
     .update({
       ...values,
@@ -84,8 +86,9 @@ export const updateBrand = async (id, updates) => {
   return data;
 };
 
-export const deleteBrand = async (id) => {
-  const { data, error } = await supabase
+export const deleteBrand = async (id, accessToken) => {
+  const userClient = createAuthenticatedSupabaseClient(accessToken);
+  const { data, error } = await userClient
     .from(BRAND_TABLE)
     .update({ is_active: false, updated_at: new Date().toISOString() })
     .eq("id", id)

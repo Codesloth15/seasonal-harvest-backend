@@ -16,6 +16,10 @@ const inventoryRouter = Router();
 // Get all products
 inventoryRouter.get('/', getAllProducts);
 
+// Static routes must be registered before the dynamic /:id route.
+inventoryRouter.get('/reports/summary', getInventorySummary);
+inventoryRouter.get('/reports/low-stock', getLowStockItems);
+
 // Get single product
 inventoryRouter.get('/:id', getProductById);
 
@@ -30,11 +34,5 @@ inventoryRouter.patch('/:id/stock', authorize, adjustStock);
 
 // Delete product (soft delete)
 inventoryRouter.delete('/:id', authorize, deleteProduct);
-
-// Get inventory summary report
-inventoryRouter.get('/reports/summary', getInventorySummary);
-
-// Get low stock items
-inventoryRouter.get('/reports/low-stock', getLowStockItems);
 
 export default inventoryRouter;

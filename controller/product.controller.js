@@ -1,113 +1,55 @@
-import * as ProductModel from "../model/product.model.js";
+import * as ProductService from "../services/product.service.js";
+import { parseOptionalBoolean } from "../utils/validation.js";
 
-/**
- * Create Product
- */
-export const createProduct = async (req, res, next) => {
-  try {
-    const product = await ProductModel.createProduct(req.body);
-
-    res.status(201).json({
-      success: true,
-      message: "Product created successfully.",
-      data: product,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/**
- * Get All Products
- */
 export const getAllProducts = async (req, res, next) => {
   try {
-    const { categoryId, brandId, productType, search, active, sort, order } = req.query;
-    const filters = {
-      categoryId,
-      brandId,
-      productType,
-      search,
-      sort,
-      order,
-    };
-
-    if (active !== undefined) {
-      if (active !== "true" && active !== "false") {
-        return res.status(400).json({ success: false, error: "active must be true or false." });
-      }
-      filters.active = active === "true";
-    }
-
-    const products = await ProductModel.getAllProducts(filters);
-
-    res.status(200).json({
-      success: true,
-      count: products.length,
-      data: products,
+    const products = await ProductService.listProducts({
+      categoryId: req.query.categoryId,
+      brandId: req.query.brandId,
+      productType: req.query.productType,
+      search: req.query.search,
+      active: parseOptionalBoolean(req.query.active, "active"),
+      sort: req.query.sort,
+      order: req.query.order,
     });
-
+    res.status(200).json({ success: true, count: products.length, data: products });
   } catch (error) {
-    console.error(error);
     next(error);
   }
 };
-/**
- * Get Product By ID
- */
+
 export const getProductById = async (req, res, next) => {
   try {
-    const { id } = req.params;
-
-    const product = await ProductModel.getProductById(id);
-    if (!product) return res.status(404).json({ success: false, error: "Product not found." });
-
-    res.status(200).json({
-      success: true,
-      data: product,
-    });
+    const product = await ProductService.getProduct(req.params.id);
+    res.status(200).json({ success: true, data: product });
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * Update Product
- */
+export const createProduct = async (req, res, next) => {
+  try {
+    const product = await ProductService.createProduct(req.body, req.accessToken);
+    res.status(201).json({ success: true, message: "Product created successfully.", data: product });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const updateProduct = async (req, res, next) => {
   try {
-    const { id } = req.params;
-
-    const product = await ProductModel.updateProduct(id, req.body);
-    if (!product) return res.status(404).json({ success: false, error: "Product not found." });
-
-    res.status(200).json({
-      success: true,
-      message: "Product updated successfully.",
-      data: product,
-    });
+    const product = await ProductService.updateProduct(req.params.id, req.body, req.accessToken);
+    res.status(200).json({ success: true, message: "Product updated successfully.", data: product });
   } catch (error) {
     next(error);
   }
 };
 
-/**
- * Delete Product (Soft Delete)
- */
 export const deleteProduct = async (req, res, next) => {
   try {
-    const { id } = req.params;
-
-    const product = await ProductModel.deleteProduct(id);
-    if (!product) return res.status(404).json({ success: false, error: "Product not found." });
-
-    res.status(200).json({
-      success: true,
-      message: "Product deleted successfully.",
-    });
+    await ProductService.deleteProduct(req.params.id, req.accessToken);
+    res.status(200).json({ success: true, message: "Product deleted successfully." });
   } catch (error) {
     next(error);
   }
 };
-
-

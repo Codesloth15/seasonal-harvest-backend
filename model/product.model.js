@@ -1,4 +1,4 @@
-import supabase from "../config/supabase.js";
+import supabase, { createAuthenticatedSupabaseClient } from "../config/supabase.js";
 import { generateSku } from "../services/sku.service.js";
 
 export const PRODUCT_TABLE = "products";
@@ -43,7 +43,7 @@ const withCurrency = (product) =>
 /**
  * Create Product
  */
-export const createProduct = async (product) => {
+export const createProduct = async (product, accessToken) => {
   const values = pickProductFields(product);
   validatePrice(values);
   if (!values.name || !values.category_id || !values.product_type || values.price === undefined) {
@@ -61,6 +61,12 @@ export const createProduct = async (product) => {
 
   if (isBranded && !values.brand_id) {
     const error = new Error("brand_id is required for BRANDED products.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  if (!isBranded && values.brand_id) {
+    const error = new Error("brand_id must not be provided for UNBRANDED products.");
     error.statusCode = 400;
     throw error;
   }
@@ -85,7 +91,8 @@ export const createProduct = async (product) => {
 
   const sku = await generateSku(brandName, values.name);
 
-  const { data, error } = await supabase
+  const userClient = createAuthenticatedSupabaseClient(accessToken);
+  const { data, error } = await userClient
     .from(PRODUCT_TABLE)
     .insert({
       ...values,
@@ -159,7 +166,7 @@ export const getProductById = async (id) => {
 /**
  * Update Product
  */
-export const updateProduct = async (id, updates) => {
+export const updateProduct = async (id, updates, accessToken) => {
   const values = pickProductFields(updates);
   if (Object.keys(values).length === 0) {
     const error = new Error("Provide at least one valid product field to update.");
@@ -168,7 +175,8 @@ export const updateProduct = async (id, updates) => {
   }
   validatePrice(values);
 
-  const { data, error } = await supabase
+  const userClient = createAuthenticatedSupabaseClient(accessToken);
+  const { data, error } = await userClient
     .from(PRODUCT_TABLE)
     .update(values)
     .eq("id", id)
@@ -183,8 +191,9 @@ export const updateProduct = async (id, updates) => {
 /**
  * Soft Delete Product
  */
-export const deleteProduct = async (id) => {
-  const { data, error } = await supabase
+export const deleteProduct = async (id, accessToken) => {
+  const userClient = createAuthenticatedSupabaseClient(accessToken);
+  const { data, error } = await userClient
     .from(PRODUCT_TABLE)
     .update({
       is_active: false,
