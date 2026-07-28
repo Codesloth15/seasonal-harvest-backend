@@ -1,41 +1,27 @@
-import jwt from 'jsonwebtoken';
-import { JWT_SECRET } from '../config/env.js';
+import supabase from "../config/supabase.js";
 
 const authorize = async (req, res, next) => {
   try {
-    let token;
+    const [scheme, token] = (req.headers.authorization || "").split(" ");
 
-    // 1. Check if the token exists in the headers
-    if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-      // Extract the token from: "Bearer <token_string>"
-      token = req.headers.authorization.split(' ')[1];
-    }
-
-    if (!token) {
+    if (scheme !== "Bearer" || !token) {
       const error = new Error("Not authorized to access this route");
       error.statusCode = 401;
       throw error;
     }
 
-    // 2. Verify the token
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const { data, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !data.user) {
+      const error = new Error("Invalid or expired access token");
+      error.statusCode = 401;
+      throw error;
+    }
 
-    // 3. Attach user info to request
-    req.user = {
-      id: decoded.userId || decoded.sub || decoded.id,
-      email: decoded.email,
-      _id: decoded.userId || decoded.sub || decoded.id
-    };
+    req.user = data.user;
+    req.accessToken = token;
 
     next();
   } catch (error) {
-    if (error.message === 'jwt expired') {
-      error.statusCode = 401;
-      error.message = 'Token expired';
-    } else if (error.message === 'invalid token' || error.message === 'jwt malformed') {
-      error.statusCode = 401;
-      error.message = 'Invalid token';
-    }
     next(error);
   }
 };

@@ -43,6 +43,26 @@ Initial migration that creates:
 - **Automatic Timestamps**:
   - Trigger to auto-update `updated_at` on every modification
 
+### `20260424000002_create_auth_and_roles.sql`
+
+Creates Supabase profiles, employee/admin/super-admin roles, audit logs, profile RLS, and automatic profile creation for new Auth users.
+
+### `20260728000001_create_categories_table.sql`
+
+Creates categories, case-insensitive unique names, automatic timestamps, public reads, and active admin/super-admin write policies.
+
+### `20260728000002_create_brands_table.sql`
+
+Creates brands, active-only public reads, case-insensitive unique names, automatic timestamps, and admin-only write policies.
+
+### `20260728000003_create_products_table.sql`
+
+Creates products with category and brand relationships, branded/unbranded constraints, unique SKU and barcode indexes, active-only public reads, automatic timestamps, and admin-only write policies.
+
+### `20260728000004_fix_profile_signup_trigger.sql`
+
+Repairs profile creation with a restricted `SECURITY DEFINER` trigger function so Supabase Auth can insert the matching `profiles` row without signup being blocked by public-schema permissions or RLS.
+
 ## Database Schema Reference
 
 ### Inventory Table
@@ -64,8 +84,8 @@ Initial migration that creates:
 
 Ensure your Supabase credentials are in `.env.development.local`:
 ```
-SUPABASE_URL=https://xxqeiwzfvexuyftmtssy.supabase.co
-SUPABASE_ANON_KEY=sb_publishable_R_9QK9QN9th-SJgfQ22SHg_2e7JWAqK
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-public-anon-key
 SUPABASE_PASSWORD=your-database-password
 ```
 
@@ -73,7 +93,7 @@ SUPABASE_PASSWORD=your-database-password
 
 1. **Link your Supabase project** (if not already done):
    ```bash
-   supabase link --project-ref xxqeiwzfvexuyftmtssy
+   supabase link --project-ref your-project-reference
    ```
 
 2. **Push migrations to remote**:
@@ -93,4 +113,4 @@ If you encounter RLS policy errors:
 2. Check that `created_by` matches the authenticated user's UUID
 3. Verify RLS policies are enabled on the table
 
-For more information, see the main project [docs/info.md](../../docs/info.md)
+For more information, see the [inventory setup guide](../../docs/INVENTORY_SETUP.md).

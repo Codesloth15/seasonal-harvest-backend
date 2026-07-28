@@ -1,0 +1,520 @@
+# API Endpoint Reference
+
+## Overview
+
+This document lists the endpoints currently mounted by `app.js` for the Seasonal Harvest backend.
+
+Local base URL:
+
+```text
+http://localhost:<PORT>/api/v1
+```
+
+Production base URL:
+
+```text
+https://<railway-domain>/api/v1
+```
+
+Replace `<PORT>` with the configured local port and `<railway-domain>` with the deployed Railway domain.
+
+## Authentication
+
+Protected endpoints require a Supabase access token:
+
+```http
+Authorization: Bearer <access-token>
+```
+
+Requests with a missing, invalid, or expired token return `401`.
+
+## Response format
+
+Typical success response:
+
+```json
+{
+  "success": true,
+  "message": "Operation completed successfully.",
+  "data": {}
+}
+```
+
+Typical error response:
+
+```json
+{
+  "success": false,
+  "error": "Error message"
+}
+```
+
+## Endpoint summary
+
+| Method | Endpoint | Authentication | Description |
+|---|---|---|---|
+| `GET` | `/` | Public | Basic server response |
+| `POST` | `/api/v1/auth/sign-up` | Public | Create an account |
+| `POST` | `/api/v1/auth/sign-in` | Public | Sign in with email and password |
+| `POST` | `/api/v1/auth/forgot-password` | Public | Request a password-recovery email |
+| `POST` | `/api/v1/auth/reset-password` | Bearer token | Set a new password using a recovery session |
+| `POST` | `/api/v1/auth/sign-out` | Bearer token | Revoke Supabase refresh sessions |
+| `GET` | `/api/v1/auth/me` | Bearer token | Return the authenticated user |
+| `GET` | `/api/v1/inventory` | Public | List active inventory items |
+| `GET` | `/api/v1/inventory/reports/summary` | Public | Return inventory totals; currently shadowed by `/:id` |
+| `GET` | `/api/v1/inventory/reports/low-stock` | Public | Return low-stock items; currently shadowed by `/:id` |
+| `GET` | `/api/v1/inventory/:id` | Public | Get an inventory item |
+| `POST` | `/api/v1/inventory` | Bearer token | Create an inventory item |
+| `PUT` | `/api/v1/inventory/:id` | Bearer token | Update an inventory item |
+| `PATCH` | `/api/v1/inventory/:id/stock` | Bearer token | Adjust stock quantity |
+| `DELETE` | `/api/v1/inventory/:id` | Bearer token | Soft-delete an inventory item |
+| `GET` | `/api/v1/products` | Public | List products |
+| `GET` | `/api/v1/products/:id` | Public | Get a product |
+| `POST` | `/api/v1/products` | Admin or super admin | Create a product |
+| `PUT` | `/api/v1/products/:id` | Admin or super admin | Update a product |
+| `DELETE` | `/api/v1/products/:id` | Admin or super admin | Disable a product |
+| `GET` | `/api/v1/brands` | Public | List brands |
+| `GET` | `/api/v1/brands/:id` | Public | Get a brand |
+| `POST` | `/api/v1/brands` | Admin or super admin | Create a brand |
+| `PUT` | `/api/v1/brands/:id` | Admin or super admin | Update a brand |
+| `DELETE` | `/api/v1/brands/:id` | Admin or super admin | Disable a brand |
+| `GET` | `/api/v1/categories` | Public | List categories |
+| `GET` | `/api/v1/categories/:id` | Public | Get a category |
+| `POST` | `/api/v1/categories` | Admin or super admin | Create a category |
+| `PUT` | `/api/v1/categories/:id` | Admin or super admin | Update a category |
+| `DELETE` | `/api/v1/categories/:id` | Admin or super admin | Delete a category |
+
+Product and brand mutations require authentication and an active admin or super-admin profile.
+
+## Category endpoints
+
+### List categories
+
+```http
+GET /api/v1/categories?search=wet&sort=name&order=asc
+```
+
+Optional parameters are `search`, `sort` (`name`, `created_at`, or `updated_at`), and `order` (`asc` or `desc`).
+
+### Get category
+
+```http
+GET /api/v1/categories/:id
+```
+
+### Create category
+
+```http
+POST /api/v1/categories
+Authorization: Bearer <admin-access-token>
+Content-Type: application/json
+```
+
+```json
+{
+  "name": "Wet Goods",
+  "description": "Fresh and refrigerated products",
+  "icon": "snowflake"
+}
+```
+
+### Update category
+
+```http
+PUT /api/v1/categories/:id
+Authorization: Bearer <admin-access-token>
+Content-Type: application/json
+```
+
+At least one of `name`, `description`, or `icon` is required.
+
+### Delete category
+
+```http
+DELETE /api/v1/categories/:id
+Authorization: Bearer <admin-access-token>
+```
+
+Category mutations require an active `admin` or `super_admin` profile and are also protected by Supabase RLS.
+
+## Authentication endpoints
+
+### Sign up
+
+```http
+POST /api/v1/auth/sign-up
+Content-Type: application/json
+```
+
+Request body:
+
+```json
+{
+  "fullName": "Maria Santos",
+  "email": "maria@example.com",
+  "password": "secure-password"
+}
+```
+
+Rules:
+
+- `fullName` must contain 2–100 characters.
+- `name` is accepted as an alias for `fullName`.
+- `email` must be valid and is normalized to lowercase.
+- `password` must contain at least 8 characters.
+- Depending on Supabase configuration, the user may need to verify their email before signing in.
+
+Success status: `201 Created`.
+
+### Sign in
+
+```http
+POST /api/v1/auth/sign-in
+Content-Type: application/json
+```
+
+Request body:
+
+```json
+{
+  "email": "maria@example.com",
+  "password": "secure-password"
+}
+```
+
+The Supabase access token is returned in:
+
+```text
+data.session.access_token
+```
+
+Invalid credentials return a generic `401` response that does not reveal whether the email exists.
+
+### Forgot password
+
+```http
+POST /api/v1/auth/forgot-password
+Content-Type: application/json
+```
+
+Request body:
+
+```json
+{
+  "email": "maria@example.com"
+}
+```
+
+The endpoint always returns a neutral success message when the request is accepted. This prevents account enumeration. Supabase sends the recovery email and redirects the user to `<FRONTEND_URL>/reset-password`.
+
+### Reset password
+
+```http
+POST /api/v1/auth/reset-password
+Authorization: Bearer <recovery-access-token>
+Content-Type: application/json
+```
+
+Request body:
+
+```json
+{
+  "password": "new-secure-password"
+}
+```
+
+The password must contain at least 8 characters.
+
+### Current user
+
+```http
+GET /api/v1/auth/me
+Authorization: Bearer <access-token>
+```
+
+Returns the Supabase user associated with the verified access token.
+
+### Sign out
+
+```http
+POST /api/v1/auth/sign-out
+Authorization: Bearer <access-token>
+```
+
+Requests a global Supabase sign-out. The frontend must also remove its locally stored access and refresh tokens.
+
+## Inventory endpoints
+
+### List inventory
+
+```http
+GET /api/v1/inventory
+```
+
+Optional query parameters:
+
+| Parameter | Example | Description |
+|---|---|---|
+| `category` | `Wet` | Filter by inventory category |
+| `sort` | `created_at` | Column used for sorting |
+| `order` | `asc` or `desc` | Sort direction; defaults to `desc` |
+
+Soft-deleted items are excluded.
+
+### Inventory summary
+
+```http
+GET /api/v1/inventory/reports/summary
+```
+
+Intended response data:
+
+```json
+{
+  "totalValue": "1000.00",
+  "lowStockCount": 2,
+  "totalItems": 10,
+  "totalQuantity": 75,
+  "averagePrice": "100.00"
+}
+```
+
+This static route is registered before `/:id`, so Express resolves it correctly.
+
+### Low-stock inventory
+
+```http
+GET /api/v1/inventory/reports/low-stock
+```
+
+Returns active items whose `stock_qty` is less than or equal to `low_stock_threshold`.
+
+Current limitation: this route is also shadowed by `/:id` and must be moved before it.
+
+### Get inventory item
+
+```http
+GET /api/v1/inventory/:id
+```
+
+Path parameters:
+
+| Parameter | Description |
+|---|---|
+| `id` | Inventory UUID |
+
+### Create inventory item
+
+```http
+POST /api/v1/inventory
+Authorization: Bearer <access-token>
+Content-Type: application/json
+```
+
+Request body:
+
+```json
+{
+  "name": "Fresh Chicken",
+  "category": "Wet",
+  "price": 250,
+  "stock_qty": 20,
+  "low_stock_threshold": 5,
+  "description": "Fresh whole chicken"
+}
+```
+
+Required fields: `name`, `category`, and `price`. The authenticated user's Supabase ID is stored as `created_by`.
+
+### Update inventory item
+
+```http
+PUT /api/v1/inventory/:id
+Authorization: Bearer <access-token>
+Content-Type: application/json
+```
+
+Accepted fields:
+
+- `name`
+- `category`
+- `price`
+- `low_stock_threshold`
+- `description`
+
+Stock changes should use the dedicated stock endpoint.
+
+### Adjust inventory stock
+
+```http
+PATCH /api/v1/inventory/:id/stock
+Authorization: Bearer <access-token>
+Content-Type: application/json
+```
+
+Request body:
+
+```json
+{
+  "adjustment": -2
+}
+```
+
+Use a positive number to add stock and a negative number to subtract stock. The resulting quantity cannot be below zero.
+
+### Delete inventory item
+
+```http
+DELETE /api/v1/inventory/:id
+Authorization: Bearer <access-token>
+```
+
+This is a soft delete. The backend sets `deleted_at` instead of permanently removing the record.
+
+## Product endpoints
+
+### List products
+
+```http
+GET /api/v1/products
+```
+
+Optional query parameters:
+
+| Parameter | Description |
+|---|---|
+| `categoryId` | Filter by category UUID |
+| `brandId` | Filter by brand UUID |
+| `productType` | Filter by `BRANDED` or `UNBRANDED` |
+| `search` | Case-insensitive name search |
+| `active` | Must be `true` or `false` |
+| `sort` | `name`, `price`, `created_at`, or `updated_at` |
+| `order` | `asc` or `desc` |
+
+### Get product
+
+```http
+GET /api/v1/products/:id
+```
+
+### Create product
+
+```http
+POST /api/v1/products
+Content-Type: application/json
+```
+
+Request body example:
+
+```json
+{
+  "category_id": "<category-uuid>",
+  "brand_id": "<brand-uuid>",
+  "name": "Chicken Hotdog",
+  "description": "One kilogram pack",
+  "product_type": "BRANDED",
+  "barcode": "1234567890123",
+  "unit": "pack",
+  "price": 180,
+  "image_url": "https://example.com/image.jpg",
+  "is_active": true
+}
+```
+
+Required fields: `category_id`, `name`, `product_type`, and `price`. A `BRANDED` product also requires `brand_id`. The backend generates the SKU and reports prices in PHP.
+
+Security: this endpoint requires an active admin or super-admin profile.
+
+### Update product
+
+```http
+PUT /api/v1/products/:id
+Content-Type: application/json
+```
+
+Accepts the supported product fields shown in the creation example. At least one valid field is required.
+
+Security: this endpoint requires an active admin or super-admin profile.
+
+### Delete product
+
+```http
+DELETE /api/v1/products/:id
+```
+
+This operation soft-disables the product by setting `is_active` to `false`.
+
+Security: this endpoint requires an active admin or super-admin profile.
+
+## Brand endpoints
+
+### List brands
+
+```http
+GET /api/v1/brands
+```
+
+Optional query parameters:
+
+| Parameter | Description |
+|---|---|
+| `search` | Case-insensitive brand-name search |
+| `active` | Must be `true` or `false` |
+| `sort` | `name`, `created_at`, or `updated_at` |
+| `order` | `asc` or `desc` |
+
+### Get brand
+
+```http
+GET /api/v1/brands/:id
+```
+
+### Create brand
+
+```http
+POST /api/v1/brands
+Content-Type: application/json
+```
+
+Request body:
+
+```json
+{
+  "name": "Sample Brand",
+  "logo_url": "https://example.com/logo.png",
+  "is_active": true
+}
+```
+
+`name` is required.
+
+Security: this endpoint requires an active admin or super-admin profile.
+
+### Update brand
+
+```http
+PUT /api/v1/brands/:id
+Content-Type: application/json
+```
+
+Accepted fields: `name`, `logo_url`, and `is_active`. At least one valid field is required.
+
+Security: this endpoint requires an active admin or super-admin profile.
+
+### Delete brand
+
+```http
+DELETE /api/v1/brands/:id
+```
+
+This operation soft-disables the brand by setting `is_active` to `false`.
+
+Security: this endpoint requires an active admin or super-admin profile.
+
+## Production readiness blockers
+
+- Protect product and brand mutations using authentication and role authorization.
+- Add migrations and RLS policies for products and brands.
+- Add pagination and strict query validation to collection endpoints.
+- Add role checks for employee, admin, and super-admin capabilities.
+- Add integration tests that verify Express authorization and Supabase RLS together.

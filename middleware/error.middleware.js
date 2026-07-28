@@ -1,40 +1,21 @@
+const POSTGRES_ERROR_MAP = {
+  "23505": { statusCode: 409, message: "A record with the same unique value already exists" },
+  "23503": { statusCode: 409, message: "This record is still referenced by another resource" },
+  "22P02": { statusCode: 400, message: "Invalid identifier or field value" },
+};
+
 const errorMiddleware = (err, req, res, next) => {
-  try {
-    let error = { ...err };
-    error.message = err.message;
+  if (res.headersSent) return next(err);
 
-    console.error(err); // Log the full error for the developer
+  const mapped = POSTGRES_ERROR_MAP[err.code];
+  const statusCode = mapped?.statusCode || err.statusCode || Number(err.status) || 500;
+  const message = mapped?.message || err.message || "Server Error";
 
-    // 1. Mongoose Bad ObjectId (Cast Error)
-    if (err.name === 'CastError') {
-      const message = 'Resource not found';
-      error = new Error(message);
-      error.statusCode = 404;
-    }
-
-    // 2. Mongoose Duplicate Key Error (e.g., same email)
-    if (err.code === 11000) {
-      const message = 'Duplicate field value entered';
-      error = new Error(message);
-      error.statusCode = 400;
-    }
-
-    // 3. Mongoose Validation Error
-    if (err.name === 'ValidationError') {
-      const message = Object.values(err.errors).map(val => val.message);
-      error = new Error(message);
-      error.statusCode = 400;
-    }
-
-    // Send the response
-    res.status(error.statusCode || 500).json({
-      success: false,
-      error: error.message || 'Server Error'
-    });
-
-  } catch (error) {
-    next(error); 
+  if (statusCode >= 500) {
+    console.error(err);
   }
+
+  return res.status(statusCode).json({ success: false, error: message });
 };
 
 export default errorMiddleware;
