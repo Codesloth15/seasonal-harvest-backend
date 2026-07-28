@@ -5,6 +5,11 @@ if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   throw new Error('Please define SUPABASE_URL and SUPABASE_ANON_KEY in your environment variables');
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    autoRefreshToken: false,
+    persistSession: false,
+  },
+});
 
 export default supabase;

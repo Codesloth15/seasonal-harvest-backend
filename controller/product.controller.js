@@ -22,11 +22,24 @@ export const createProduct = async (req, res, next) => {
  */
 export const getAllProducts = async (req, res, next) => {
   try {
-    console.log("Query Params:", req.query);
+    const { categoryId, brandId, productType, search, active, sort, order } = req.query;
+    const filters = {
+      categoryId,
+      brandId,
+      productType,
+      search,
+      sort,
+      order,
+    };
 
-    const products = await ProductModel.getAllProducts({});
+    if (active !== undefined) {
+      if (active !== "true" && active !== "false") {
+        return res.status(400).json({ success: false, error: "active must be true or false." });
+      }
+      filters.active = active === "true";
+    }
 
-    console.log("Products:", products);
+    const products = await ProductModel.getAllProducts(filters);
 
     res.status(200).json({
       success: true,
@@ -47,6 +60,7 @@ export const getProductById = async (req, res, next) => {
     const { id } = req.params;
 
     const product = await ProductModel.getProductById(id);
+    if (!product) return res.status(404).json({ success: false, error: "Product not found." });
 
     res.status(200).json({
       success: true,
@@ -65,6 +79,7 @@ export const updateProduct = async (req, res, next) => {
     const { id } = req.params;
 
     const product = await ProductModel.updateProduct(id, req.body);
+    if (!product) return res.status(404).json({ success: false, error: "Product not found." });
 
     res.status(200).json({
       success: true,
@@ -83,7 +98,8 @@ export const deleteProduct = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    await ProductModel.deleteProduct(id);
+    const product = await ProductModel.deleteProduct(id);
+    if (!product) return res.status(404).json({ success: false, error: "Product not found." });
 
     res.status(200).json({
       success: true,

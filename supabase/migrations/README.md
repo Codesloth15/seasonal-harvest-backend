@@ -93,4 +93,4 @@ If you encounter RLS policy errors:
 2. Check that `created_by` matches the authenticated user's UUID
 3. Verify RLS policies are enabled on the table
 
-For more information, see the main project [docs/info.md](../../docs/info.md)
+For more information, see the [inventory setup guide](../../docs/INVENTORY_SETUP.md).
