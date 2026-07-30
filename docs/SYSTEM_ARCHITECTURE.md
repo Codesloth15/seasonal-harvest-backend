@@ -2,7 +2,7 @@
 
 ## 1. System overview
 
-Seasonal Harvest Backend is an ES-module Node.js API built with Express. Its mounted API manages authentication, inventory, products, brands, and categories. Supabase provides authentication, PostgreSQL storage, row-level security (RLS), and database migrations. Arcjet protects every incoming request with shield, bot-detection, and token-bucket rate-limit rules.
+Seasonal Harvest Backend is an ES-module Node.js API built with Express. Its mounted API manages authentication, inventory, products, brands, and categories. Supabase provides authentication, PostgreSQL storage, row-level security (RLS), and database migrations. Arcjet protects every `/api/v1` request with shield, bot-detection, and token-bucket rate-limit rules.
 
 ## 2. High-level architecture
 
@@ -91,7 +91,7 @@ Controllers read `req.params`, `req.query`, and `req.body`; perform request-leve
 Despite the directory name, the active Supabase model files act as repositories or data-access modules rather than ORM entity definitions:
 
 - `inventory.model.js` queries `inventory`, implements soft deletion, adjusts stock, and calculates reports.
-- `product.model.js` queries `products`, validates product fields and PHP prices, and soft-deletes by setting `is_active` to `false`.
+- `product.model.js` queries `products`, validates product fields and PHP prices, and permanently deletes products through the admin-protected endpoint.
 - `brand.model.js` queries `brands` and soft-deletes by setting `is_active` to `false`.
 - `category.model.js` queries `categories` and uses a user-scoped Supabase client for protected writes.
 
@@ -171,7 +171,8 @@ seasonal-harvest-backend/
 |       |-- 20260728000001_create_categories_table.sql
 |       |-- 20260728000002_create_brands_table.sql
 |       |-- 20260728000003_create_products_table.sql
-|       `-- 20260728000004_fix_profile_signup_trigger.sql
+|       |-- 20260728000004_fix_profile_signup_trigger.sql
+|       `-- 20260728000005_fix_profiles_rls_recursion.sql
 |
 |-- docs/
 |   |-- INVENTORY_SETUP.md         # Inventory schema and setup guide
@@ -181,6 +182,7 @@ seasonal-harvest-backend/
 |   |-- API_ENDPOINTS.md           # Central reference for active HTTP endpoints
 |   |-- CATEGORY_MODULE.md         # Category schema, CRUD, and security guide
 |   |-- SUPABASE_CRUD_SETUP.md     # Unified Supabase CRUD, RLS, and grants guide
+|   |-- BUGS.md                    # Defects, incidents, and technical risks
 |   |-- PROGRESS.md                # Feature completion and security roadmap
 |   |-- TESTING.md                 # Unit testing, coverage, and security guidance
 |   `-- SYSTEM_ARCHITECTURE.md     # This document

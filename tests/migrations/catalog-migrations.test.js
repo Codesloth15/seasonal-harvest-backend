@@ -16,6 +16,20 @@ describe("catalog migrations", () => {
     expect(sql).toMatch(/AFTER INSERT ON auth\.users/i);
   });
 
+  it("repairs recursive profile policies with security-definer role helpers", async () => {
+    const sql = await readMigration("20260728000005_fix_profiles_rls_recursion.sql");
+
+    expect(sql).toMatch(/FUNCTION public\.is_admin_or_super_admin\(\)/i);
+    expect(sql).toMatch(/FUNCTION public\.is_super_admin\(\)/i);
+    expect(sql).toMatch(/SECURITY DEFINER/i);
+    expect(sql).toMatch(/SET search_path = ''/i);
+    expect(sql).toMatch(/DROP POLICY IF EXISTS "Super admin can view all profiles"/i);
+    expect(sql).toMatch(/USING \(public\.is_super_admin\(\)\)/i);
+    expect(sql).toMatch(/REVOKE UPDATE ON public\.profiles FROM authenticated/i);
+    expect(sql).toMatch(/GRANT UPDATE \(full_name\) ON public\.profiles TO authenticated/i);
+    expect(sql).not.toMatch(/IN \(SELECT id FROM (public\.)?profiles/i);
+  });
+
   it("secures the brands table with RLS and least-privilege grants", async () => {
     const sql = await readMigration("20260728000002_create_brands_table.sql");
 

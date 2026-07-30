@@ -14,9 +14,10 @@ import arcjetMiddleware from "./middleware/arcjet.middleware.js";
 const app = express();
 
 app.disable("x-powered-by");
-app.use(express.json({ limit: "100kb" }));
 app.use(cors(corsOptions));
-app.use(arcjetMiddleware);
+app.use(express.json({ limit: "100kb" }));
+// Every current and future API route, including reads, uses Arcjet.
+app.use("/api/v1", arcjetMiddleware);
 
 app.use("/api/v1/inventory", inventoryRouter);
 app.use("/api/v1/products", productRouter);
