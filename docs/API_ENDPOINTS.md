@@ -77,7 +77,7 @@ Typical error response:
 | `GET` | `/api/v1/brands/:id` | Public | Get a brand |
 | `POST` | `/api/v1/brands` | Admin or super admin | Create a brand |
 | `PUT` | `/api/v1/brands/:id` | Admin or super admin | Update a brand |
-| `DELETE` | `/api/v1/brands/:id` | Admin or super admin | Disable a brand |
+| `DELETE` | `/api/v1/brands/:id` | Admin or super admin | Permanently delete a brand |
 | `GET` | `/api/v1/categories` | Public | List categories |
 | `GET` | `/api/v1/categories/:id` | Public | Get a category |
 | `POST` | `/api/v1/categories` | Admin or super admin | Create a category |
@@ -513,7 +513,7 @@ Security: this endpoint requires an active admin or super-admin profile.
 DELETE /api/v1/brands/:id
 ```
 
-This operation soft-disables the brand by setting `is_active` to `false`.
+This operation permanently deletes the brand. Deletion fails when products still reference the brand.
 
 Security: this endpoint requires an active admin or super-admin profile.
 

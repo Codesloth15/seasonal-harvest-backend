@@ -1,6 +1,6 @@
 # Backend Feature Progress
 
-Last reviewed: July 30, 2026
+Last reviewed: July 31, 2026
 
 ## Status definitions
 
@@ -119,7 +119,7 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | List brands | `DONE` | Search, active filter, and sorting are implemented |
 | Get brand | `DONE` | Single-brand lookup is implemented |
 | Update brand | `DONE` | Allowed-field filtering is implemented |
-| Soft-disable brand | `DONE` | Delete changes `is_active` to false |
+| Permanently delete brand | `DONE` | Admin-protected `DELETE /api/v1/brands/:id` issues a Supabase hard delete; referenced brands are protected by `ON DELETE RESTRICT` |
 | Brand input validation | `DONE` | A trimmed name is required for creation |
 | Brand table migration | `DONE` | Schema, uniqueness, indexes, RLS, grants, and timestamps are committed |
 | Brand write authorization | `DONE` | Mutations use authenticated clients and admin role enforcement |
@@ -189,7 +189,7 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 |---|---|---|
 | ESLint configuration | `DONE` | ESLint is configured and authentication files pass linting |
 | Versioned Supabase migrations | `DONE` | Inventory, catalog, auth/role, RLS repair, and product-image Storage migrations are committed |
-| Automated unit tests and coverage | `DONE` | 85 Vitest tests pass, including product-image upload and error-response behavior, with enforced statement, branch, function, and line thresholds |
+| Automated unit tests and coverage | `DONE` | 103 Vitest tests pass, including product-image upload and error-response behavior, with enforced statement, branch, function, and line thresholds |
 | API integration tests | `NONE` | Test authentication, authorization, CRUD, RLS, and errors |
 | End-to-end frontend/backend tests | `NONE` | Cover registration, login, recovery, and main business flows |
 | CI pipeline | `NONE` | Run lint, tests, migration checks, and secret scanning |

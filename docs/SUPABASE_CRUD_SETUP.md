@@ -16,7 +16,7 @@ Do not place real keys, passwords, access tokens, or service-role credentials in
 | Inventory | `inventory` | Create, read, update, stock adjustment, and soft delete | Committed |
 | Categories | `categories` | Create, read, update, and delete | Committed |
 | Products | `products` | Create, read, update, and soft disable | Committed |
-| Brands | `brands` | Create, read, update, and soft disable | Committed |
+| Brands | `brands` | Create, read, update, and hard delete | Committed |
 
 All active Supabase tables now have reproducible migrations in the repository.
 
@@ -197,9 +197,9 @@ Required policies:
 | Select | Public read, or active-only public read |
 | Insert | Active admin or super admin |
 | Update | Active admin or super admin |
-| Delete | Do not expose hard delete; the API sets `is_active = false` |
+| Delete | Active admin or super admin; referenced brands remain protected by the product foreign key |
 
-Brand reads are public for active records. Brand creation, updates, and soft disabling require a verified access token and an active `admin` or `super_admin` profile. The model forwards the token through a user-scoped Supabase client, and RLS independently checks the role.
+Brand reads are public for active records. Brand creation, updates, and deletion require a verified access token and an active `admin` or `super_admin` profile. The model forwards the token through a user-scoped Supabase client, and RLS independently checks the role.
 
 ## Products CRUD
 

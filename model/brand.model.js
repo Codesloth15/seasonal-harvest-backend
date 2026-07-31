@@ -90,7 +90,7 @@ export const deleteBrand = async (id, accessToken) => {
   const userClient = createAuthenticatedSupabaseClient(accessToken);
   const { data, error } = await userClient
     .from(BRAND_TABLE)
-    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .delete()
     .eq("id", id)
     .select()
     .maybeSingle();

@@ -92,7 +92,7 @@ Despite the directory name, the active Supabase model files act as repositories 
 
 - `inventory.model.js` queries `inventory`, implements soft deletion, adjusts stock, and calculates reports.
 - `product.model.js` queries `products`, validates product fields and PHP prices, and permanently deletes products through the admin-protected endpoint.
-- `brand.model.js` queries `brands` and soft-deletes by setting `is_active` to `false`.
+- `brand.model.js` queries `brands` and permanently deletes brands through the authenticated Supabase client.
 - `category.model.js` queries `categories` and uses a user-scoped Supabase client for protected writes.
 
 ### Service layer

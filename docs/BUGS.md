@@ -1,6 +1,6 @@
 # Bugs and Known Issues
 
-Last reviewed: July 30, 2026
+Last reviewed: July 31, 2026
 
 This file is the single tracker for defects, production errors, and confirmed technical risks. Feature work that has not produced incorrect behavior belongs in `PROGRESS.md` instead.
 
@@ -16,12 +16,12 @@ This file is the single tracker for defects, production errors, and confirmed te
 
 ## Active bugs
 
-Current audit: 8 active entries — 2 fixes ready for deployment verification,
+Current audit: 9 active entries — 3 fixes ready for deployment verification,
 1 blocked by a pending migration, and 5 still open.
 
 | State | Bugs | What is needed |
 |---|---|---|
-| Repository fix ready | `BUG-002`, `BUG-014` | Apply the relevant Supabase migrations and verify the original requests in the deployed environment; `BUG-014` also requires the frontend multipart change |
+| Repository fix ready | `BUG-002`, `BUG-014`, `BUG-015` | Apply the relevant Supabase migrations or code deployment and verify the original requests in the deployed environment; `BUG-014` also requires the frontend multipart change |
 | Blocked | `BUG-003` | Verify product deletion after `BUG-002` is deployed |
 | Code fix needed | `BUG-008`, `BUG-009`, `BUG-010`, `BUG-012` | Implement atomic stock changes, collision-safe SKU generation, route-specific auth throttling, and real Supabase integration tests |
 | Configuration fix needed | `BUG-011` | Configure `FRONTEND_URL` and the matching Supabase recovery redirect allowlist |
@@ -36,8 +36,33 @@ Current audit: 8 active entries — 2 fixes ready for deployment verification,
 | `BUG-011` | Medium | Password recovery | Password-reset delivery can fail or redirect incorrectly when `FRONTEND_URL` and Supabase redirect URLs are not configured consistently | `OPEN` | Configure the production frontend URL and allow `<FRONTEND_URL>/reset-password` in Supabase Auth |
 | `BUG-012` | Medium | Testing | Database RLS behavior is checked through migration text but not through integration tests against a real test database | `OPEN` | Add authenticated integration tests for profile reads, admin role checks, product mutations, and forbidden roles |
 | `BUG-014` | High | Product images | The frontend can encode an image as Base64 inside the JSON `image_url` field, making the request exceed the backend's 100 KB JSON limit and return `413 Payload Too Large` | `FIX READY` | Backend multipart upload, MIME/size validation, specific upload errors, CORS-before-parser ordering, rollback behavior, and unit tests are ready. Send the actual file as the `image` field, apply `20260729000001_create_product_image_storage_policies.sql`, and verify upload to `product-images/{product-id}/{generated-filename}` in the target project |
+| `BUG-015` | Medium | Brands | Brand deletion returned success but retained the row in Supabase because the repository only set `is_active = false` | `FIX READY` | Deploy the repository change that issues `.delete()`, then verify an unreferenced brand is physically removed and a referenced brand is rejected by the foreign-key constraint |
 
 ## Deployment verification pending
+
+### BUG-015 - Brand delete retained the database row
+
+Observed behavior:
+
+```text
+DELETE /api/v1/brands/:id returned 200 "Brand deleted successfully."
+The brand row remained in the Supabase brands table with is_active = false.
+```
+
+Cause: `brand.model.js` implemented deletion as an update to `is_active = false`, while the API response claimed the brand was deleted.
+
+Repository fix:
+
+- The authenticated Supabase query now calls `.delete()` and returns the deleted row.
+- The service still returns `404` when no matching row is deleted.
+- Product references remain protected by the existing `ON DELETE RESTRICT` foreign key.
+- All 103 Vitest tests pass.
+
+Still required before resolution:
+
+1. Deploy this branch to the target backend environment.
+2. Delete an unreferenced test brand and confirm its row no longer exists in `public.brands`.
+3. Attempt to delete a referenced brand and confirm the database prevents orphaned products.
 
 ### BUG-002 - Recursive `profiles` policies
 
