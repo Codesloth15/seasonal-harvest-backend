@@ -1,31 +1,34 @@
 # Backend Feature Progress
 
-Last reviewed: July 28, 2026
+Last reviewed: July 31, 2026
 
 ## Status definitions
 
 | Status | Meaning |
 |---|---|
 | `DONE` | Implemented and connected to the running application |
+| `PARTIAL` | Some usable implementation exists, but required integration, infrastructure, or deployment verification is still outstanding |
 | `NONE` | Not implemented, not connected, or not ready for use |
 
 A source file by itself does not qualify as `DONE`. The feature must be mounted, have its required dependencies and infrastructure, and be usable through the current application architecture.
 
+Confirmed defects and technical risks are tracked separately in `BUGS.md`.
+
 ## Progress summary
 
-| Area | Done | None |
-|---|---:|---:|
-| Application foundation | 11 | 1 |
-| Authentication and security | 13 | 9 |
-| Inventory | 10 | 3 |
-| Products | 9 | 3 |
-| Brands | 8 | 2 |
-| Categories | 8 | 2 |
-| Users and roles | 5 | 6 |
-| Orders and fulfillment | 0 | 10 |
-| Notifications and workflows | 0 | 6 |
-| Quality and operations | 4 | 11 |
-| **Total** | **68** | **53** |
+| Area | Done | Partial | None |
+|---|---:|---:|---:|
+| Application foundation | 11 | 0 | 1 |
+| Authentication and security | 13 | 0 | 9 |
+| Inventory | 10 | 0 | 3 |
+| Products | 9 | 1 | 2 |
+| Brands | 8 | 0 | 2 |
+| Categories | 8 | 0 | 2 |
+| Users and roles | 5 | 0 | 6 |
+| Orders and fulfillment | 0 | 0 | 10 |
+| Notifications and workflows | 0 | 0 | 6 |
+| Quality and operations | 4 | 0 | 11 |
+| **Total** | **68** | **1** | **52** |
 
 The counts are a planning snapshot and should be updated whenever a feature changes status.
 
@@ -58,7 +61,7 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | Global sign-out request | `DONE` | `POST /api/v1/auth/sign-out` |
 | Supabase bearer-token validation | `DONE` | `auth.middleware.js` calls `supabase.auth.getUser(token)` |
 | Generic invalid-login response | `DONE` | Login does not reveal whether the email exists |
-| Global Arcjet protection | `DONE` | Shield, bot detection, and token-bucket rules are active |
+| Global Arcjet protection | `DONE` | `/api/v1` mounts Arcjet before every feature router, so all API reads and writes use Shield, bot detection, and token-bucket rules; allow, rate-limit, bot, and Shield decisions are unit tested |
 | Password minimum length validation | `DONE` | Sign-up and reset require at least 8 characters |
 | Frontend password-reset URL | `NONE` | Set `FRONTEND_URL` in development and production environments |
 | Supabase reset redirect allowlist | `NONE` | Allow `<FRONTEND_URL>/reset-password` in Supabase Auth settings |
@@ -99,14 +102,14 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | List products | `DONE` | Filtering, searching, and sorting are implemented |
 | Get product | `DONE` | Single-product lookup is implemented |
 | Update product | `DONE` | Allowed-field filtering and price validation are implemented |
-| Soft-disable product | `DONE` | Delete changes `is_active` to false |
+| Permanently delete product | `DONE` | Admin-protected delete removes the product row |
 | Product type validation | `DONE` | Supports `BRANDED` and `UNBRANDED` |
 | SKU generation | `DONE` | `sku.service.js` generates a brand/product sequence |
 | Product table migration | `DONE` | Schema, constraints, indexes, RLS, grants, and timestamps are committed |
 | Product write authorization | `DONE` | Mutations use authenticated clients and admin role enforcement |
 | Collision-safe SKU generation | `NONE` | Add a unique constraint and atomic sequence/retry behavior |
 | Product pagination | `NONE` | Add validated limit/cursor behavior |
-| Product image upload | `NONE` | Add secure storage, MIME/size validation, and ownership rules |
+| Product image upload | `PARTIAL` | The admin-protected create route accepts one `image` multipart field, validates JPEG/PNG/WebP/AVIF and a 5 MB limit, uploads to `product-images/{product-id}/{generated-filename}`, saves the public URL in `image_url`, rolls back failed creates, and returns actionable upload errors. Unit tests pass; apply the storage-policy migration, switch the frontend away from Base64 JSON, and verify against the target Supabase project before marking `DONE`. |
 
 ## Brands
 
@@ -116,7 +119,7 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | List brands | `DONE` | Search, active filter, and sorting are implemented |
 | Get brand | `DONE` | Single-brand lookup is implemented |
 | Update brand | `DONE` | Allowed-field filtering is implemented |
-| Soft-disable brand | `DONE` | Delete changes `is_active` to false |
+| Permanently delete brand | `DONE` | Admin-protected `DELETE /api/v1/brands/:id` issues a Supabase hard delete; referenced brands are protected by `ON DELETE RESTRICT` |
 | Brand input validation | `DONE` | A trimmed name is required for creation |
 | Brand table migration | `DONE` | Schema, uniqueness, indexes, RLS, grants, and timestamps are committed |
 | Brand write authorization | `DONE` | Mutations use authenticated clients and admin role enforcement |
@@ -142,7 +145,7 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 
 | Feature | Status | Evidence or required work |
 |---|---|---|
-| Profile table migration | `DONE` | Supabase `profiles` table extends Auth users |
+| Profile table migration | `DONE` | Supabase `profiles` table extends Auth users; recursive role policies are repaired with restricted security-definer helpers |
 | Employee/admin/super-admin roles | `DONE` | `user_role` enum is committed |
 | Automatic profile creation | `DONE` | Auth-user trigger inserts a profile |
 | Current profile API | `NONE` | Return application profile and role alongside Auth identity |
@@ -185,8 +188,8 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | Feature | Status | Evidence or required work |
 |---|---|---|
 | ESLint configuration | `DONE` | ESLint is configured and authentication files pass linting |
-| Versioned Supabase migrations | `DONE` | Inventory and auth/role migrations are committed |
-| Automated unit tests and coverage | `DONE` | 71 Vitest tests pass with enforced statement, branch, function, and line thresholds |
+| Versioned Supabase migrations | `DONE` | Inventory, catalog, auth/role, RLS repair, and product-image Storage migrations are committed |
+| Automated unit tests and coverage | `DONE` | 103 Vitest tests pass, including product-image upload and error-response behavior, with enforced statement, branch, function, and line thresholds |
 | API integration tests | `NONE` | Test authentication, authorization, CRUD, RLS, and errors |
 | End-to-end frontend/backend tests | `NONE` | Cover registration, login, recovery, and main business flows |
 | CI pipeline | `NONE` | Run lint, tests, migration checks, and secret scanning |
@@ -205,10 +208,10 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 Work should proceed in this order:
 
 1. Configure `FRONTEND_URL` and Supabase recovery redirects.
-2. Add role middleware and protect every write endpoint.
-3. Add product and brand migrations with constraints and RLS.
-4. Make stock updates atomic.
-5. Add authentication, authorization, and RLS integration tests.
+2. Apply and verify the profile-RLS repair and product-image Storage migrations in the target Supabase project.
+3. Switch product creation in the frontend from Base64 JSON to the admin-authenticated multipart `image` flow.
+4. Make stock updates atomic and make SKU generation collision-safe.
+5. Add authentication, authorization, Storage-policy, and RLS integration tests.
 6. Add security headers, stricter auth throttling, structured audit events, and secret scanning.
 7. Build users/roles administration.
 8. Build orders with transactional stock reservation and idempotent payment handling.

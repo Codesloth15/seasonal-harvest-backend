@@ -29,44 +29,72 @@ CREATE TABLE audit_logs (
 ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
+-- Security-definer role helpers prevent profile policies from querying the
+-- RLS-protected profiles table recursively.
+CREATE OR REPLACE FUNCTION public.is_admin_or_super_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = auth.uid()
+      AND is_active = true
+      AND role IN ('admin', 'super_admin')
+  );
+$$;
+
+CREATE OR REPLACE FUNCTION public.is_super_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = auth.uid()
+      AND is_active = true
+      AND role = 'super_admin'
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.is_admin_or_super_admin() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.is_super_admin() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_admin_or_super_admin() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.is_super_admin() TO authenticated;
+
 -- RLS Policies for profiles table
 CREATE POLICY "Users can view their own profile" ON profiles
   FOR SELECT USING (auth.uid() = id);
 
 CREATE POLICY "Super admin can view all profiles" ON profiles
-  FOR SELECT USING (
-    auth.uid() IN (SELECT id FROM profiles WHERE role = 'super_admin')
-  );
+  FOR SELECT USING (public.is_super_admin());
 
 CREATE POLICY "Admin can view all active profiles" ON profiles
-  FOR SELECT USING (
-    auth.uid() IN (SELECT id FROM profiles WHERE role IN ('admin', 'super_admin'))
-  );
+  FOR SELECT USING (is_active = true AND public.is_admin_or_super_admin());
 
 CREATE POLICY "Users can update their own profile" ON profiles
   FOR UPDATE USING (auth.uid() = id)
   WITH CHECK (auth.uid() = id);
 
 CREATE POLICY "Super admin can update any profile" ON profiles
-  FOR UPDATE USING (
-    auth.uid() IN (SELECT id FROM profiles WHERE role = 'super_admin')
-  );
+  FOR UPDATE USING (public.is_super_admin())
+  WITH CHECK (public.is_super_admin());
 
 CREATE POLICY "Super admin can delete profiles" ON profiles
-  FOR DELETE USING (
-    auth.uid() IN (SELECT id FROM profiles WHERE role = 'super_admin')
-  );
+  FOR DELETE USING (public.is_super_admin());
 
 CREATE POLICY "Super admin can insert profiles" ON profiles
-  FOR INSERT WITH CHECK (
-    auth.uid() IN (SELECT id FROM profiles WHERE role = 'super_admin')
-  );
+  FOR INSERT WITH CHECK (public.is_super_admin());
 
 -- RLS Policies for audit_logs
 CREATE POLICY "Audit logs are viewable by admins only" ON audit_logs
-  FOR SELECT USING (
-    auth.uid() IN (SELECT id FROM profiles WHERE role IN ('admin', 'super_admin'))
-  );
+  FOR SELECT USING (public.is_admin_or_super_admin());
 
 CREATE POLICY "Audit logs are insertable by system" ON audit_logs
   FOR INSERT WITH CHECK (true);
@@ -148,5 +176,6 @@ FOR EACH ROW
 EXECUTE FUNCTION log_inventory_changes();
 
 -- Grant permissions
-GRANT SELECT, INSERT, UPDATE ON profiles TO authenticated;
+GRANT SELECT, INSERT ON profiles TO authenticated;
+GRANT UPDATE (full_name) ON profiles TO authenticated;
 GRANT SELECT ON audit_logs TO authenticated;

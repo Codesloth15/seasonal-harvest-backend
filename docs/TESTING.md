@@ -41,7 +41,7 @@ The HTML report is generated under `coverage/` and is excluded from Git.
 | `tests/services/category.service.test.js` | Category use cases and typed not-found behavior |
 | `tests/services/inventory.service.test.js` | Inventory validation, authenticated writes, updates, and stock adjustment |
 
-The suite contains 71 passing tests. Coverage is enforced for the security-sensitive and refactored modules.
+The suite contains 76 passing tests. Coverage is enforced for the security-sensitive and refactored modules, including Arcjet request decisions.
 
 | Metric | Coverage | Required threshold |
 |---|---:|---:|

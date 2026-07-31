@@ -77,7 +77,7 @@ Typical error response:
 | `GET` | `/api/v1/brands/:id` | Public | Get a brand |
 | `POST` | `/api/v1/brands` | Admin or super admin | Create a brand |
 | `PUT` | `/api/v1/brands/:id` | Admin or super admin | Update a brand |
-| `DELETE` | `/api/v1/brands/:id` | Admin or super admin | Disable a brand |
+| `DELETE` | `/api/v1/brands/:id` | Admin or super admin | Permanently delete a brand |
 | `GET` | `/api/v1/categories` | Public | List categories |
 | `GET` | `/api/v1/categories/:id` | Public | Get a category |
 | `POST` | `/api/v1/categories` | Admin or super admin | Create a category |
@@ -401,29 +401,35 @@ GET /api/v1/products/:id
 
 ```http
 POST /api/v1/products
-Content-Type: application/json
+Authorization: Bearer <supabase-access-token>
+Content-Type: multipart/form-data
 ```
 
-Request body example:
+Multipart fields:
 
-```json
-{
-  "category_id": "<category-uuid>",
-  "brand_id": "<brand-uuid>",
-  "name": "Chicken Hotdog",
-  "description": "One kilogram pack",
-  "product_type": "BRANDED",
-  "barcode": "1234567890123",
-  "unit": "pack",
-  "price": 180,
-  "image_url": "https://example.com/image.jpg",
-  "is_active": true
-}
-```
+| Field | Type | Notes |
+|---|---|---|
+| `category_id` | Text | Required category UUID |
+| `brand_id` | Text | Required for `BRANDED`; omit for `UNBRANDED` |
+| `name` | Text | Required |
+| `description` | Text | Optional |
+| `product_type` | Text | Required: `BRANDED` or `UNBRANDED` |
+| `barcode` | Text | Optional |
+| `unit` | Text | Optional |
+| `price` | Text/number | Required non-negative PHP amount |
+| `is_active` | Text/boolean | Optional; defaults to active |
+| `image` | File | Optional JPEG, PNG, WebP, or AVIF; maximum 5 MB |
 
 Required fields: `category_id`, `name`, `product_type`, and `price`. A `BRANDED` product also requires `brand_id`. The backend generates the SKU and reports prices in PHP.
 
 Security: this endpoint requires an active admin or super-admin profile.
+
+When `image` is supplied, the backend stores it at
+`product-images/{product-id}/{generated-filename}` and writes the resulting
+public URL to `products.image_url`. Do not send Base64 image data in a JSON
+`image_url` value: it can exceed the 100 KB JSON body limit and return
+`413 Payload Too Large`. Browser clients should pass a `FormData` body and
+must not manually set the multipart `Content-Type` boundary.
 
 ### Update product
 
@@ -442,7 +448,7 @@ Security: this endpoint requires an active admin or super-admin profile.
 DELETE /api/v1/products/:id
 ```
 
-This operation soft-disables the product by setting `is_active` to `false`.
+This operation permanently removes the product row. It requires an authenticated admin or super admin.
 
 Security: this endpoint requires an active admin or super-admin profile.
 
@@ -507,7 +513,7 @@ Security: this endpoint requires an active admin or super-admin profile.
 DELETE /api/v1/brands/:id
 ```
 
-This operation soft-disables the brand by setting `is_active` to `false`.
+This operation permanently deletes the brand. Deletion fails when products still reference the brand.
 
 Security: this endpoint requires an active admin or super-admin profile.
 

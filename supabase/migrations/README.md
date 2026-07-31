@@ -63,6 +63,10 @@ Creates products with category and brand relationships, branded/unbranded constr
 
 Repairs profile creation with a restricted `SECURITY DEFINER` trigger function so Supabase Auth can insert the matching `profiles` row without signup being blocked by public-schema permissions or RLS.
 
+### `20260728000005_fix_profiles_rls_recursion.sql`
+
+Replaces recursive profile role policies with restricted `SECURITY DEFINER` role helpers and limits direct profile updates to `full_name`.
+
 ## Database Schema Reference
 
 ### Inventory Table

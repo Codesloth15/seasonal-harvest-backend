@@ -189,15 +189,13 @@ export const updateProduct = async (id, updates, accessToken) => {
 };
 
 /**
- * Soft Delete Product
+ * Permanently Delete Product
  */
 export const deleteProduct = async (id, accessToken) => {
   const userClient = createAuthenticatedSupabaseClient(accessToken);
   const { data, error } = await userClient
     .from(PRODUCT_TABLE)
-    .update({
-      is_active: false,
-    })
+    .delete()
     .eq("id", id)
     .select()
     .maybeSingle();

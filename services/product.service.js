@@ -1,5 +1,9 @@
 import * as ProductRepository from "../model/product.model.js";
 import { notFound } from "../utils/http-error.js";
+import {
+  deleteProductImage,
+  uploadProductImage,
+} from "./product-image.service.js";
 
 export const listProducts = (filters) => ProductRepository.getAllProducts(filters);
 
@@ -9,7 +13,38 @@ export const getProduct = async (id) => {
   return product;
 };
 
-export const createProduct = (values, accessToken) => ProductRepository.createProduct(values, accessToken);
+export const createProduct = async (values, image, accessToken) => {
+  const product = await ProductRepository.createProduct(values, accessToken);
+  if (!image) return product;
+
+  let objectPath;
+  try {
+    const uploaded = await uploadProductImage(product.id, image, accessToken);
+    objectPath = uploaded.objectPath;
+
+    return await ProductRepository.updateProduct(
+      product.id,
+      { image_url: uploaded.imageUrl },
+      accessToken,
+    );
+  } catch (error) {
+    if (objectPath) {
+      try {
+        await deleteProductImage(objectPath, accessToken);
+      } catch (cleanupError) {
+        console.error("Failed to remove product image after product creation failed.", cleanupError);
+      }
+    }
+
+    try {
+      await ProductRepository.deleteProduct(product.id, accessToken);
+    } catch (cleanupError) {
+      console.error("Failed to roll back product after image upload failed.", cleanupError);
+    }
+
+    throw error;
+  }
+};
 
 export const updateProduct = async (id, values, accessToken) => {
   const product = await ProductRepository.updateProduct(id, values, accessToken);
