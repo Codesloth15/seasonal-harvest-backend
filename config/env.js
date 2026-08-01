@@ -9,4 +9,6 @@ export const {
   SUPABASE_ANON_KEY,
   FRONTEND_URL,
   CORS_ORIGINS,
+  OPENAI_API_KEY,
+  OPENAI_MODEL,
 } = process.env;

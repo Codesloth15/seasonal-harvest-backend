@@ -1,6 +1,6 @@
 # Backend Feature Progress
 
-Last reviewed: July 31, 2026
+Last reviewed: August 1, 2026
 
 ## Status definitions
 
@@ -27,8 +27,9 @@ Confirmed defects and technical risks are tracked separately in `BUGS.md`.
 | Users and roles | 5 | 0 | 6 |
 | Orders and fulfillment | 0 | 0 | 10 |
 | Notifications and workflows | 0 | 0 | 6 |
+| AI and analytics | 0 | 1 | 10 |
 | Quality and operations | 4 | 0 | 11 |
-| **Total** | **68** | **1** | **52** |
+| **Total** | **68** | **2** | **62** |
 
 The counts are a planning snapshot and should be updated whenever a feature changes status.
 
@@ -183,6 +184,26 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | Working background workflow integration | `NONE` | Design a Supabase-compatible background job system when required |
 | Delivery retry and failure tracking | `NONE` | Add idempotent retry behavior and operational visibility |
 
+## AI and analytics
+
+The existing inventory summary and low-stock report endpoints are the foundation for
+dashboard analytics. AI answers must use live, role-authorized backend queries rather
+than relying on model training knowledge or unrestricted database access.
+
+| Feature | Status | Required work |
+|---|---|---|
+| Total catalog product metric | `NONE` | Count active records from the product catalog separately from inventory rows |
+| Inventory trends | `NONE` | Build on a stock movement ledger to report stock changes over time |
+| Sales analytics | `NONE` | Aggregate completed order and immutable order-item data after the order module exists |
+| Revenue and order trends | `NONE` | Report revenue, order volume, and average order value by validated date range |
+| Best-selling products | `NONE` | Rank products by units sold and revenue while preserving historical order-item data |
+| Low-stock and restocking analytics | `NONE` | Identify urgent items and estimate replenishment needs from thresholds and movement history |
+| Category and brand performance | `NONE` | Compare product counts, inventory, units sold, and revenue by category and brand |
+| Dashboard analytics filters | `NONE` | Support validated daily, weekly, monthly, and custom date ranges |
+| Analytics export | `NONE` | Provide role-authorized CSV or spreadsheet exports with safe size limits |
+| AI product and inventory assistant | `PARTIAL` | Admin-protected `POST /api/v1/assistant/chat`, OpenAI Responses API integration, and read-only product/inventory tools are connected; configure a server-side API key, add dedicated rate limits and audit events, expand brand/category tools, and verify against the target OpenAI and Supabase projects |
+| AI analytics assistant | `NONE` | Translate natural-language questions into approved analytics operations with role enforcement, rate limits, and audit logs |
+
 ## Quality and operations
 
 | Feature | Status | Evidence or required work |
@@ -215,7 +236,9 @@ Work should proceed in this order:
 6. Add security headers, stricter auth throttling, structured audit events, and secret scanning.
 7. Build users/roles administration.
 8. Build orders with transactional stock reservation and idempotent payment handling.
-9. Add notifications, observability, backup verification, and deployment automation.
+9. Add the stock ledger, dashboard metrics, date filters, and analytics endpoints.
+10. Add the role-authorized AI product, inventory, and analytics assistant on top of verified backend queries.
+11. Add notifications, observability, backup verification, and deployment automation.
 
 ## Rules for updating this file
 

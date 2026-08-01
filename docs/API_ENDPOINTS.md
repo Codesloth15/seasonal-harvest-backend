@@ -64,6 +64,7 @@ Typical error response:
 | `GET` | `/api/v1/inventory/reports/summary` | Public | Return inventory totals; currently shadowed by `/:id` |
 | `GET` | `/api/v1/inventory/reports/low-stock` | Public | Return low-stock items; currently shadowed by `/:id` |
 | `GET` | `/api/v1/inventory/:id` | Public | Get an inventory item |
+| `POST` | `/api/v1/assistant/chat` | Admin bearer token | Ask the read-only AI assistant about live products and inventory |
 | `POST` | `/api/v1/inventory` | Bearer token | Create an inventory item |
 | `PUT` | `/api/v1/inventory/:id` | Bearer token | Update an inventory item |
 | `PATCH` | `/api/v1/inventory/:id/stock` | Bearer token | Adjust stock quantity |
