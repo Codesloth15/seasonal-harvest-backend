@@ -23,16 +23,36 @@ const UPLOAD_ERROR_MAP = {
   },
 };
 
+const AI_ERROR_MAP = {
+  insufficient_quota: {
+    statusCode: 503,
+    message: "The AI assistant is temporarily unavailable because its usage quota is exhausted.",
+    responseCode: "AI_UNAVAILABLE",
+  },
+  rate_limit_exceeded: {
+    statusCode: 429,
+    message: "The AI provider is busy. Please try again later.",
+    responseCode: "AI_PROVIDER_RATE_LIMITED",
+  },
+};
+
 const errorMiddleware = (err, req, res, next) => {
   if (res.headersSent) return next(err);
 
   const mapped = POSTGRES_ERROR_MAP[err.code];
   const uploadError = UPLOAD_ERROR_MAP[err.code];
+  const aiError = AI_ERROR_MAP[err.code];
   const statusCode =
-    uploadError?.statusCode || mapped?.statusCode || err.statusCode || Number(err.status) || 500;
+    aiError?.statusCode ||
+    uploadError?.statusCode ||
+    mapped?.statusCode ||
+    err.statusCode ||
+    Number(err.status) ||
+    500;
   // Preserve detailed upstream errors (including Supabase Storage messages)
   // unless a known upload/parser error needs a safer, actionable message.
-  const message = uploadError?.message || mapped?.message || err.message || "Server Error";
+  const message = aiError?.message || uploadError?.message || mapped?.message || err.message || "Server Error";
+  const responseCode = aiError?.responseCode || err.code;
 
   if (statusCode >= 500) {
     console.error(err);
@@ -41,7 +61,7 @@ const errorMiddleware = (err, req, res, next) => {
   return res.status(statusCode).json({
     success: false,
     error: message,
-    ...(err.code ? { code: err.code } : {}),
+    ...(responseCode ? { code: responseCode } : {}),
   });
 };
 

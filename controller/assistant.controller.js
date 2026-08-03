@@ -9,7 +9,10 @@ export const chat = async (req, res, next) => {
       throw error;
     }
 
-    const result = await askAssistant(message);
+    const result = await askAssistant(message, {
+      userId: req.user.id,
+      role: req.profile.role,
+    });
     res.status(200).json({ success: true, data: result });
   } catch (error) {
     next(error);

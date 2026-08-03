@@ -49,4 +49,23 @@ describe("error middleware product image errors", () => {
       error: error.message,
     });
   });
+
+  it("maps exhausted OpenAI quota to a stable service-unavailable response", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const response = createResponse();
+
+    errorMiddleware(
+      { code: "insufficient_quota", status: 429, message: "raw provider billing details" },
+      {},
+      response,
+      vi.fn(),
+    );
+
+    expect(response.status).toHaveBeenCalledWith(503);
+    expect(response.json).toHaveBeenCalledWith({
+      success: false,
+      error: "The AI assistant is temporarily unavailable because its usage quota is exhausted.",
+      code: "AI_UNAVAILABLE",
+    });
+  });
 });

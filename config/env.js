@@ -11,4 +11,6 @@ export const {
   CORS_ORIGINS,
   OPENAI_API_KEY,
   OPENAI_MODEL,
+  AI_RATE_LIMIT_MAX,
+  AI_RATE_LIMIT_WINDOW_MS,
 } = process.env;

@@ -1,7 +1,37 @@
 import * as InventoryService from "../../services/inventory.service.js";
 import * as ProductService from "../../services/product.service.js";
+import * as BrandService from "../../services/brand.service.js";
+import * as CategoryService from "../../services/category.service.js";
 
 export const assistantTools = [
+  {
+    type: "function",
+    name: "search_brands",
+    description: "Search active brands by name.",
+    strict: true,
+    parameters: {
+      type: "object",
+      properties: {
+        search: { type: ["string", "null"], description: "Optional brand-name search." },
+      },
+      required: ["search"],
+      additionalProperties: false,
+    },
+  },
+  {
+    type: "function",
+    name: "search_categories",
+    description: "Search active product categories by name.",
+    strict: true,
+    parameters: {
+      type: "object",
+      properties: {
+        search: { type: ["string", "null"], description: "Optional category-name search." },
+      },
+      required: ["search"],
+      additionalProperties: false,
+    },
+  },
   {
     type: "function",
     name: "search_products",
@@ -55,6 +85,28 @@ const handlers = {
     return { count: products.length, products: products.slice(0, 50), truncated: products.length > 50 };
   },
   get_product: ({ id }) => ProductService.getProduct(id),
+  search_brands: async ({ search }) => {
+    const brands = await BrandService.listBrands({
+      search: search || undefined,
+      active: true,
+      sort: "name",
+      order: "asc",
+    });
+    return { count: brands.length, brands: brands.slice(0, 50), truncated: brands.length > 50 };
+  },
+  search_categories: async ({ search }) => {
+    const categories = await CategoryService.listCategories({
+      search: search || undefined,
+      active: true,
+      sort: "name",
+      order: "asc",
+    });
+    return {
+      count: categories.length,
+      categories: categories.slice(0, 50),
+      truncated: categories.length > 50,
+    };
+  },
   get_inventory_summary: () => InventoryService.getInventorySummary(),
   get_low_stock_items: async () => {
     const items = await InventoryService.getLowStockItems();

@@ -1,6 +1,6 @@
 # Backend Feature Progress
 
-Last reviewed: August 1, 2026
+Last reviewed: August 3, 2026
 
 ## Status definitions
 
@@ -201,7 +201,7 @@ than relying on model training knowledge or unrestricted database access.
 | Category and brand performance | `NONE` | Compare product counts, inventory, units sold, and revenue by category and brand |
 | Dashboard analytics filters | `NONE` | Support validated daily, weekly, monthly, and custom date ranges |
 | Analytics export | `NONE` | Provide role-authorized CSV or spreadsheet exports with safe size limits |
-| AI product and inventory assistant | `PARTIAL` | Admin-protected `POST /api/v1/assistant/chat`, OpenAI Responses API integration, and read-only product/inventory tools are connected; configure a server-side API key, add dedicated rate limits and audit events, expand brand/category tools, and verify against the target OpenAI and Supabase projects |
+| AI product and inventory assistant | `PARTIAL` | Admin-protected `POST /api/v1/assistant/chat`, OpenAI Responses API integration, read-only product/inventory/brand/category tools, dedicated per-user limits, metadata-only structured audit events, safe provider-quota error mapping, and unit tests are connected. The development key reaches OpenAI, but live answer and tool verification remain blocked by `insufficient_quota`; fund the OpenAI project, then repeat the live OpenAI and Supabase-backed tool checks. |
 | AI analytics assistant | `NONE` | Translate natural-language questions into approved analytics operations with role enforcement, rate limits, and audit logs |
 
 ## Quality and operations
@@ -210,7 +210,7 @@ than relying on model training knowledge or unrestricted database access.
 |---|---|---|
 | ESLint configuration | `DONE` | ESLint is configured and authentication files pass linting |
 | Versioned Supabase migrations | `DONE` | Inventory, catalog, auth/role, RLS repair, and product-image Storage migrations are committed |
-| Automated unit tests and coverage | `DONE` | 103 Vitest tests pass, including product-image upload and error-response behavior, with enforced statement, branch, function, and line thresholds |
+| Automated unit tests and coverage | `DONE` | 121 Vitest tests pass, including AI tools and tool loops, AI request validation, AI rate limiting, safe AI audit metadata, provider quota error mapping, product-image upload, and error-response behavior, with enforced statement, branch, function, and line thresholds |
 | API integration tests | `NONE` | Test authentication, authorization, CRUD, RLS, and errors |
 | End-to-end frontend/backend tests | `NONE` | Cover registration, login, recovery, and main business flows |
 | CI pipeline | `NONE` | Run lint, tests, migration checks, and secret scanning |
