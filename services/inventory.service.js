@@ -1,7 +1,8 @@
 import * as InventoryRepository from "../model/inventory.model.js";
 import { badRequest, notFound } from "../utils/http-error.js";
 
-export const listInventory = (filters) => InventoryRepository.getAllInventory(filters);
+export const listInventory = (filters, accessToken) =>
+  InventoryRepository.getAllInventory(filters, accessToken);
 
 export const getInventoryItem = async (id) => {
   const item = await InventoryRepository.getInventoryById(id);
@@ -41,11 +42,57 @@ export const updateInventoryItem = async (id, input, accessToken) => {
   return InventoryRepository.updateInventory(id, updates, accessToken);
 };
 
-export const adjustInventoryStock = (id, adjustment, accessToken) => {
-  if (typeof adjustment !== "number" || !Number.isFinite(adjustment)) {
-    throw badRequest("Adjustment value is required and must be a finite number.");
+const ADJUSTMENT_OPERATIONS = new Set(["ADD", "SUBTRACT"]);
+const TRANSACTION_OPERATIONS = {
+  STOCK_RECEIVED: "ADD",
+  CUSTOMER_RETURN: "ADD",
+  INITIAL_STOCK: "ADD",
+  ORDER_RELEASED: "ADD",
+  DAMAGED: "SUBTRACT",
+  EXPIRED: "SUBTRACT",
+  MISSING: "SUBTRACT",
+  SUPPLIER_RETURN: "SUBTRACT",
+  ORDER_COMPLETED: "SUBTRACT",
+};
+const ADJUSTMENT_TYPES = new Set([...Object.keys(TRANSACTION_OPERATIONS), "MANUAL_ADJUSTMENT"]);
+
+export const adjustInventoryStock = async (id, input, accessToken) => {
+  const operation = typeof input?.operation === "string" ? input.operation.trim().toUpperCase() : "";
+  const transactionType = typeof input?.transaction_type === "string"
+    ? input.transaction_type.trim().toUpperCase()
+    : "";
+  const reason = typeof input?.reason === "string" ? input.reason.trim() : "";
+  const performedBy = typeof input?.performed_by === "string" ? input.performed_by.trim() : "";
+  const quantity = input?.quantity;
+
+  if (!ADJUSTMENT_OPERATIONS.has(operation)) {
+    throw badRequest("Operation must be ADD or SUBTRACT.");
   }
-  return InventoryRepository.adjustStock(id, adjustment, accessToken);
+  if (typeof quantity !== "number" || !Number.isFinite(quantity) || quantity <= 0) {
+    throw badRequest("Quantity must be a positive number.");
+  }
+  if (!ADJUSTMENT_TYPES.has(transactionType)) {
+    throw badRequest("Transaction type is not supported for inventory adjustments.");
+  }
+  if (TRANSACTION_OPERATIONS[transactionType] && TRANSACTION_OPERATIONS[transactionType] !== operation) {
+    throw badRequest(`${transactionType} adjustments must use ${TRANSACTION_OPERATIONS[transactionType]}.`);
+  }
+  if (!reason) throw badRequest("Reason is required.");
+  if (reason.length > 1000) throw badRequest("Reason must not exceed 1000 characters.");
+  if (!performedBy) throw badRequest("Performed by is required.");
+
+  try {
+    return await InventoryRepository.adjustStock(
+      id,
+      { operation, quantity, transaction_type: transactionType, reason, performed_by: performedBy },
+      accessToken,
+    );
+  } catch (error) {
+    if (error?.message?.includes("Insufficient stock for this adjustment.")) {
+      throw badRequest("Insufficient stock for this adjustment.");
+    }
+    throw error;
+  }
 };
 
 export const deleteInventoryItem = (id, accessToken) =>

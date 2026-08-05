@@ -2,11 +2,14 @@ import * as InventoryService from "../services/inventory.service.js";
 
 export const getAllProducts = async (req, res, next) => {
   try {
-    const products = await InventoryService.listInventory({
-      category: req.query.category,
-      sort: req.query.sort || "created_at",
-      order: req.query.order || "desc",
-    });
+    const products = await InventoryService.listInventory(
+      {
+        category: req.query.category,
+        sort: req.query.sort || "created_at",
+        order: req.query.order || "desc",
+      },
+      req.accessToken,
+    );
     res.status(200).json({ success: true, data: products });
   } catch (error) {
     next(error);
@@ -48,18 +51,17 @@ export const updateProduct = async (req, res, next) => {
   }
 };
 
-export const adjustStock = async (req, res, next) => {
+export const adjustInventory = async (req, res, next) => {
   try {
-    const product = await InventoryService.adjustInventoryStock(
+    const adjustment = await InventoryService.adjustInventoryStock(
       req.params.id,
-      req.body.adjustment,
+      { ...req.body, performed_by: req.user.id },
       req.accessToken,
     );
-    const adjustment = req.body.adjustment;
     res.status(200).json({
       success: true,
-      data: product,
-      message: `Stock adjusted by ${adjustment > 0 ? "+" : ""}${adjustment}`,
+      message: "Inventory adjusted successfully.",
+      data: adjustment,
     });
   } catch (error) {
     next(error);

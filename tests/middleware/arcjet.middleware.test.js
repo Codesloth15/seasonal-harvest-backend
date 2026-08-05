@@ -1,10 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const protect = vi.fn();
+const productProtect = vi.fn();
 
-vi.mock("../../config/arcjet.js", () => ({ aj: { protect } }));
+vi.mock("../../config/arcjet.js", () => ({
+  aj: { protect },
+  productReadAj: { protect: productProtect },
+}));
 
-const { default: arcjetMiddleware } = await import("../../middleware/arcjet.middleware.js");
+const { default: arcjetMiddleware, productReadArcjetMiddleware } = await import(
+  "../../middleware/arcjet.middleware.js"
+);
 
 const allowedDecision = () => ({ isDenied: () => false });
 const deniedDecision = (reason) => ({
@@ -22,7 +28,10 @@ const createResponse = () => {
 };
 
 describe("arcjetMiddleware", () => {
-  beforeEach(() => protect.mockReset());
+  beforeEach(() => {
+    protect.mockReset();
+    productProtect.mockReset();
+  });
 
   it("checks an allowed request and continues", async () => {
     const request = { method: "GET", url: "/api/v1/categories" };
@@ -31,7 +40,7 @@ describe("arcjetMiddleware", () => {
 
     await arcjetMiddleware(request, createResponse(), next);
 
-    expect(protect).toHaveBeenCalledWith(request, { requested: 1 });
+    expect(protect).toHaveBeenCalledWith(request);
     expect(next).toHaveBeenCalledOnce();
   });
 
@@ -69,4 +78,14 @@ describe("arcjetMiddleware", () => {
     expect(response.json).toHaveBeenCalledWith({ error: "Access denied by security policy." });
   });
 
+  it("uses the dedicated Arcjet client for product reads", async () => {
+    const request = { method: "GET", url: "/api/v1/products" };
+    const next = vi.fn();
+    productProtect.mockResolvedValue(allowedDecision());
+
+    await productReadArcjetMiddleware(request, createResponse(), next);
+
+    expect(productProtect).toHaveBeenCalledWith(request);
+    expect(next).toHaveBeenCalledOnce();
+  });
 });

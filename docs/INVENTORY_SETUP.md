@@ -1,182 +1,146 @@
-# Inventory Management System Architecture
+# Inventory Management
 
-## System Overview
-A scalable inventory management system built with Node.js/Express backend, Supabase (PostgreSQL) database, and RESTful API for managing products, stock levels, and inventory reports.
+## Overview
 
-## Supabase Setup
+Inventory stores one current stock balance per catalog product. Product names,
+SKUs, prices, and images remain in `products`; inventory responses include them
+through the `product` relationship.
 
-### 1. Environment Variables
-Add the following to your `.env.development.local`:
+Creating a product automatically creates its inventory row with zero stock.
+Migration `20260805000002_initialize_product_inventory.sql` also backfills rows
+for products that existed before the trigger was installed.
 
+## Current stock fields
+
+| Column | Description |
+|---|---|
+| `id` | Inventory UUID used by inventory endpoints |
+| `product_id` | Unique reference to `products.id` |
+| `quantity_on_hand` | Total physical stock |
+| `reserved_quantity` | Stock reserved for pending orders |
+| `available_quantity` | Generated value: `quantity_on_hand - reserved_quantity` |
+| `low_stock_threshold` | Available quantity that triggers low-stock status |
+| `reorder_quantity` | Suggested replenishment quantity |
+| `base_unit` | Smallest tracked unit, such as `PIECE`, `KILOGRAM`, or `LITER` |
+| `last_received_at` | Most recent receiving timestamp |
+| `created_at` / `updated_at` | Audit timestamps |
+
+Packaged products are tracked in their smallest sellable unit. For example,
+five boxes containing twelve pieces each add 60 `PIECE` units.
+
+## Adjustment endpoint
+
+```http
+POST /api/v1/inventory/:inventoryId/adjust
+Authorization: Bearer <admin-access-token>
+Content-Type: application/json
 ```
-SUPABASE_PASSWORD=Seasonalinventorydb
-SUPABASE_URL=https://xxqeiwzfvexuyftmtssy.supabase.co
-SUPABASE_ANON_KEY=sb_publishable_R_9QK9QN9th-SJgfQ22SHg_2e7JWAqK
 
+Add stock:
+
+```json
+{
+  "operation": "ADD",
+  "quantity": 20,
+  "transaction_type": "MANUAL_ADJUSTMENT",
+  "reason": "Physical count found additional stock"
+}
 ```
 
-### 2. Database Schema
+Subtract stock:
 
-#### Create Inventory Table
-Run this SQL in Supabase SQL Editor:
+```json
+{
+  "operation": "SUBTRACT",
+  "quantity": 3,
+  "transaction_type": "DAMAGED",
+  "reason": "Three packs were damaged"
+}
+```
+
+The client always sends a positive quantity. The backend derives
+`performed_by` from the verified access token and does not trust a client UUID.
+
+The `adjust_inventory_stock` PostgreSQL RPC locks the inventory row, validates
+available stock, updates the balance, and inserts an audit transaction in one
+atomic operation. A subtraction that exceeds available stock returns `400` with
+`Insufficient stock for this adjustment.`
+
+## Transaction operation mapping
+
+| Transaction type | Required operation |
+|---|---|
+| `STOCK_RECEIVED` | `ADD` |
+| `CUSTOMER_RETURN` | `ADD` |
+| `INITIAL_STOCK` | `ADD` |
+| `ORDER_RELEASED` | `ADD` |
+| `DAMAGED` | `SUBTRACT` |
+| `EXPIRED` | `SUBTRACT` |
+| `MISSING` | `SUBTRACT` |
+| `SUPPLIER_RETURN` | `SUBTRACT` |
+| `ORDER_COMPLETED` | `SUBTRACT` |
+| `MANUAL_ADJUSTMENT` | `ADD` or `SUBTRACT` |
+
+Every transaction records the operation, signed quantity change, previous and
+new quantities, reason, authenticated actor, and creation time. Transaction
+history is never edited or deleted through normal API operations.
+
+## Reading inventory
+
+```http
+GET /api/v1/inventory
+Authorization: Bearer <access-token>
+```
+
+The endpoint requires authentication because inventory RLS permits authenticated
+reads. Each row includes related product data:
+
+```json
+{
+  "id": "inventory-uuid",
+  "product_id": "product-uuid",
+  "quantity_on_hand": 20,
+  "reserved_quantity": 0,
+  "available_quantity": 20,
+  "base_unit": "PIECE",
+  "product": {
+    "id": "product-uuid",
+    "name": "Tender Juicy Hotdog",
+    "sku": "CDO-HOTDOG-001",
+    "price": 185,
+    "image_url": "https://project.supabase.co/storage/v1/object/public/product-images/..."
+  }
+}
+```
+
+Images are not duplicated in inventory; use `product.image_url` and show a
+frontend placeholder when it is null.
+
+## Applying the migrations
+
+Apply migrations in timestamp order:
+
+```powershell
+supabase db push
+```
+
+The normalized inventory migrations are:
+
+1. `20260805000001_create_inventory_adjustments.sql`
+2. `20260805000002_initialize_product_inventory.sql`
+
+Verify the product-to-inventory relationship:
 
 ```sql
--- Create enum type for categories
-CREATE TYPE product_category AS ENUM ('Wet', 'Dry');
-
--- Create inventory table
-CREATE TABLE inventory (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR(100) NOT NULL,
-  category product_category NOT NULL,
-  price DECIMAL(10, 2) NOT NULL,
-  stock_qty INTEGER DEFAULT 0,
-  low_stock_threshold INTEGER DEFAULT 10,
-  description TEXT,
-  created_by UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW(),
-  deleted_at TIMESTAMP DEFAULT NULL
-);
-
--- Create indexes for performance
-CREATE INDEX idx_inventory_category ON inventory(category);
-CREATE INDEX idx_inventory_stock ON inventory(stock_qty);
-CREATE INDEX idx_inventory_created_by ON inventory(created_by);
-CREATE INDEX idx_inventory_deleted_at ON inventory(deleted_at);
-
--- Enable Row Level Security (RLS)
-ALTER TABLE inventory ENABLE ROW LEVEL SECURITY;
-
--- Create RLS policies
-CREATE POLICY "Users can view all inventory" ON inventory
-  FOR SELECT USING (deleted_at IS NULL);
-
-CREATE POLICY "Users can create inventory" ON inventory
-  FOR INSERT WITH CHECK (auth.uid() = created_by);
-
-CREATE POLICY "Users can update their own inventory" ON inventory
-  FOR UPDATE USING (auth.uid() = created_by)
-  WITH CHECK (auth.uid() = created_by);
-
-CREATE POLICY "Users can delete their own inventory" ON inventory
-  FOR DELETE USING (auth.uid() = created_by);
+SELECT inventory.id, inventory.product_id, products.name,
+       inventory.quantity_on_hand, inventory.available_quantity
+FROM public.inventory
+JOIN public.products ON products.id = inventory.product_id;
 ```
 
-#### Create Auto-Update Trigger for `updated_at`
-```sql
-CREATE OR REPLACE FUNCTION update_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
+## Current scope
 
-CREATE TRIGGER update_inventory_updated_at
-BEFORE UPDATE ON inventory
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at();
-```
-
-## Database Schema
-
-### Inventory Table Fields
-| Field | Type | Constraints | Description |
-|-------|------|-------------|-------------|
-| id | UUID | Primary Key | Unique identifier |
-| name | VARCHAR(100) | NOT NULL | Product name |
-| category | Enum | 'Wet', 'Dry' | Product type |
-| price | DECIMAL(10,2) | NOT NULL | Unit price |
-| stock_qty | INTEGER | default: 0 | Current stock |
-| low_stock_threshold | INTEGER | default: 10 | Alert threshold |
-| description | TEXT | Optional | Product details |
-| created_by | UUID | FK to auth.users | Creator reference |
-| created_at | TIMESTAMP | default: NOW() | Creation date |
-| updated_at | TIMESTAMP | default: NOW() | Last update |
-| deleted_at | TIMESTAMP | default: NULL | Soft delete |
-
-## API Endpoints
-
-### Products Management
-```
-GET    /api/v1/inventory              - Get all products (supports ?category=Wet&sort=price)
-GET    /api/v1/inventory/:id          - Get single product details
-POST   /api/v1/inventory              - Create new product (requires auth)
-PUT    /api/v1/inventory/:id          - Edit product details (requires auth)
-DELETE /api/v1/inventory/:id          - Remove product (requires auth)
-```
-
-### Stock Management
-```
-PATCH  /api/v1/inventory/:id/stock    - Adjust stock (add/subtract units, requires auth)
-GET    /api/v1/inventory/reports/summary     - Get inventory summary
-GET    /api/v1/inventory/reports/low-stock   - Get all low stock items
-```
-
-## Core Features
-
-### 1. Stock Management
-- Atomic increment/decrement operations
-- Validation to prevent negative stock
-- Real-time low stock alerts
-- Stock movement tracking
-
-### 2. Low Stock Alerts
-- Configurable thresholds per product
-- Real-time low stock notifications
-- Dashboard highlighting
-- Report generation
-
-### 3. Inventory Reports
-- Total inventory value calculation
-- Low stock item reports
-- Stock analysis by category
-- Audit trail with soft deletes
-
-### 4. Product Categories
-- Wet goods
-- Dry goods
-- Extensible enum structure
-
-## Stock Update Logic
-```javascript
-// PATCH /api/v1/inventory/:id/stock
-// Body: { adjustment: 10 } or { adjustment: -5 }
-// Uses PostgreSQL atomic operations
-```
-
-## Authentication & Authorization
-- JWT-based authentication via Supabase Auth
-- Row-Level Security (RLS) policies
-- Only authorized users can create/edit inventory
-- Creator tracking for audit purposes
-- Automatic user association
-
-## Implementation Stack
-- **Backend**: Node.js + Express.js
-- **Database**: Supabase (PostgreSQL)
-- **Authentication**: Supabase Auth + JWT
-- **Error Handling**: Centralized middleware
-- **Validation**: Schema-level validation + API validation
-
-## Best Practices
-1. **Soft Deletes**: Use `deleted_at` field for historical tracking
-2. **Atomic Operations**: Use PostgreSQL transactions for stock changes
-3. **Audit Trail**: Timestamps track all changes automatically
-4. **Security**: Row-Level Security (RLS) controls data access
-5. **Performance**: Strategic indexes on frequently queried columns
-6. **Scalability**: Supabase auto-scales with your needs
-
-## Installing Dependencies
-```bash
-npm install @supabase/supabase-js
-```
-
-## Migration from MongoDB
-The refactoring from MongoDB to Supabase provides:
-- Better data integrity with PostgreSQL relational constraints
-- Real-time capabilities with Supabase
-- Built-in authentication integration
-- Row-Level Security for data privacy
-- Automatic backups and disaster recovery
+The operation-based adjustment flow is implemented. The complete receiving flow
+with receipts, suppliers, packaging conversion, cost, batch, and expiration data
+still requires the planned `POST /api/v1/inventory/receive` endpoint and atomic
+receiving RPC.

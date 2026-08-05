@@ -1,6 +1,6 @@
 # Backend Feature Progress
 
-Last reviewed: August 3, 2026
+Last reviewed: August 5, 2026
 
 ## Status definitions
 
@@ -20,7 +20,7 @@ Confirmed defects and technical risks are tracked separately in `BUGS.md`.
 |---|---:|---:|---:|
 | Application foundation | 11 | 0 | 1 |
 | Authentication and security | 13 | 0 | 9 |
-| Inventory | 10 | 0 | 3 |
+| Inventory | 12 | 0 | 1 |
 | Products | 9 | 1 | 2 |
 | Brands | 8 | 0 | 2 |
 | Categories | 8 | 0 | 2 |
@@ -28,8 +28,8 @@ Confirmed defects and technical risks are tracked separately in `BUGS.md`.
 | Orders and fulfillment | 0 | 0 | 10 |
 | Notifications and workflows | 0 | 0 | 6 |
 | AI and analytics | 0 | 1 | 10 |
-| Quality and operations | 4 | 0 | 11 |
-| **Total** | **68** | **2** | **62** |
+| Quality and operations | 4 | 1 | 10 |
+| **Total** | **70** | **3** | **59** |
 
 The counts are a planning snapshot and should be updated whenever a feature changes status.
 
@@ -91,8 +91,8 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | Inventory ownership RLS | `DONE` | Select/insert/update/delete policies are committed |
 | Reachable summary report route | `DONE` | Static report route is registered before `/:id` |
 | Reachable low-stock route | `DONE` | Static report route is registered before `/:id` |
-| Atomic stock adjustment | `NONE` | Replace read-then-write logic with a transaction/RPC to prevent races |
-| Stock movement ledger | `NONE` | Record every adjustment with actor, reason, quantity, and timestamp |
+| Atomic stock adjustment | `DONE` | `adjust_inventory_stock` locks the row, prevents negative available stock, updates the balance, and writes its ledger entry atomically |
+| Stock movement ledger | `DONE` | Every adjustment records operation, signed change, before/after quantities, reason, authenticated actor, and timestamp |
 | Pagination | `NONE` | Add validated limit/cursor behavior for inventory lists |
 
 ## Products
@@ -213,7 +213,7 @@ than relying on model training knowledge or unrestricted database access.
 | Automated unit tests and coverage | `DONE` | 121 Vitest tests pass, including AI tools and tool loops, AI request validation, AI rate limiting, safe AI audit metadata, provider quota error mapping, product-image upload, and error-response behavior, with enforced statement, branch, function, and line thresholds |
 | API integration tests | `NONE` | Test authentication, authorization, CRUD, RLS, and errors |
 | End-to-end frontend/backend tests | `NONE` | Cover registration, login, recovery, and main business flows |
-| CI pipeline | `NONE` | Run lint, tests, migration checks, and secret scanning |
+| CI pipeline | `PARTIAL` | Pull requests to `main` run dependency installation, ESLint, and all Vitest tests; migration checks and secret scanning remain |
 | API schema/OpenAPI | `NONE` | Publish machine-readable request and response contracts |
 | Health endpoint | `DONE` | Public `/health` endpoint supports Railway deployment health checks |
 | Structured logging | `NONE` | Add request IDs and machine-readable security-aware logs |

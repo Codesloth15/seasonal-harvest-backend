@@ -3,6 +3,7 @@ import * as ProductController from "../controller/product.controller.js";
 import authorize from "../middleware/auth.middleware.js";
 import requireRole from "../middleware/role.middleware.js";
 import { uploadProductImage } from "../middleware/product-image.middleware.js";
+import { productReadArcjetMiddleware } from "../middleware/arcjet.middleware.js";
 
 const router = express.Router();
 const requireCatalogAdmin = requireRole("admin", "super_admin");
@@ -15,9 +16,9 @@ router.post(
   ProductController.createProduct,
 );
 
-router.get("/", ProductController.getAllProducts);
+router.get("/", productReadArcjetMiddleware, ProductController.getAllProducts);
 
-router.get("/:id", ProductController.getProductById);
+router.get("/:id", productReadArcjetMiddleware, ProductController.getProductById);
 
 router.put("/:id", authorize, requireCatalogAdmin, ProductController.updateProduct);
 

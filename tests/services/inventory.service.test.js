@@ -58,15 +58,37 @@ describe("inventory service", () => {
     expect(InventoryRepository.updateInventory).toHaveBeenCalledWith("1", { price: 0 }, "token");
   });
 
-  it("rejects non-finite stock adjustments", () => {
-    expect(() => InventoryService.adjustInventoryStock("1", Number.NaN, "token")).toThrow(
-      "finite number",
-    );
+  it("rejects negative stock adjustment quantities", async () => {
+    await expect(InventoryService.adjustInventoryStock("1", {
+      operation: "ADD", quantity: -1, transaction_type: "MANUAL_ADJUSTMENT",
+      reason: "Count correction", performed_by: "user-1",
+    }, "token")).rejects.toThrow("positive number");
   });
 
-  it("forwards valid stock adjustments with authentication", async () => {
-    InventoryRepository.adjustStock.mockResolvedValue({ id: "1", stock_qty: 4 });
-    await InventoryService.adjustInventoryStock("1", -1, "token");
-    expect(InventoryRepository.adjustStock).toHaveBeenCalledWith("1", -1, "token");
+  it("forwards normalized operation-based adjustments with authentication", async () => {
+    InventoryRepository.adjustStock.mockResolvedValue({ previous_quantity: 5, quantity_change: -1, new_quantity: 4 });
+    await InventoryService.adjustInventoryStock("1", {
+      operation: "subtract", quantity: 1, transaction_type: "damaged",
+      reason: " Damaged pack ", performed_by: " user-1 ",
+    }, "token");
+    expect(InventoryRepository.adjustStock).toHaveBeenCalledWith("1", {
+      operation: "SUBTRACT", quantity: 1, transaction_type: "DAMAGED",
+      reason: "Damaged pack", performed_by: "user-1",
+    }, "token");
+  });
+
+  it("rejects an operation that conflicts with the transaction type", async () => {
+    await expect(InventoryService.adjustInventoryStock("1", {
+      operation: "ADD", quantity: 1, transaction_type: "DAMAGED",
+      reason: "Damaged pack", performed_by: "user-1",
+    }, "token")).rejects.toThrow("DAMAGED adjustments must use SUBTRACT");
+  });
+
+  it("returns a typed bad request when available stock is insufficient", async () => {
+    InventoryRepository.adjustStock.mockRejectedValue(new Error("Insufficient stock for this adjustment."));
+    await expect(InventoryService.adjustInventoryStock("1", {
+      operation: "SUBTRACT", quantity: 10, transaction_type: "MISSING",
+      reason: "Missing", performed_by: "user-1",
+    }, "token")).rejects.toMatchObject({ statusCode: 400, message: "Insufficient stock for this adjustment." });
   });
 });

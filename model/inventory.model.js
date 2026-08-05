@@ -16,23 +16,18 @@ export const createInventory = async (data, accessToken) => {
 };
 
 // Get all inventory items (with optional filters)
-export const getAllInventory = async (filters = {}) => {
-  let query = supabase.from(INVENTORY_TABLE).select('*');
-  
-  // Apply filters
-  if (filters.category) {
-    query = query.eq('category', filters.category);
-  }
-  
-  if (filters.createdBy) {
-    query = query.eq('created_by', filters.createdBy);
-  }
-  
-  // Exclude soft-deleted items
-  query = query.is('deleted_at', null);
+export const getAllInventory = async (filters = {}, accessToken) => {
+  const client = accessToken ? createAuthenticatedSupabaseClient(accessToken) : supabase;
+  let query = client
+    .from(INVENTORY_TABLE)
+    .select('*, product:products(id, name, sku, unit, price, image_url, is_active)');
   
   // Apply sorting
-  const sortField = filters.sort || 'created_at';
+  const allowedSortFields = new Set([
+    'created_at', 'updated_at', 'quantity_on_hand', 'reserved_quantity',
+    'low_stock_threshold', 'last_received_at',
+  ]);
+  const sortField = allowedSortFields.has(filters.sort) ? filters.sort : 'created_at';
   const sortOrder = filters.order === 'asc' ? { ascending: true } : { ascending: false };
   query = query.order(sortField, sortOrder);
   
@@ -46,10 +41,9 @@ export const getAllInventory = async (filters = {}) => {
 export const getInventoryById = async (id) => {
   const { data, error } = await supabase
     .from(INVENTORY_TABLE)
-    .select('*')
+    .select('*, product:products(id, name, sku, unit, price, image_url, is_active)')
     .eq('id', id)
-    .is('deleted_at', null)
-    .single();
+    .maybeSingle();
   
   if (error) throw error;
   return data;
@@ -72,15 +66,18 @@ export const updateInventory = async (id, updates, accessToken) => {
 
 // Adjust stock (add or subtract)
 export const adjustStock = async (id, adjustment, accessToken) => {
-  // Get current stock
-  const item = await getInventoryById(id);
-  const newQty = item.stock_qty + adjustment;
-  
-  if (newQty < 0) {
-    throw new Error('Stock cannot go below 0');
-  }
-  
-  return updateInventory(id, { stock_qty: newQty }, accessToken);
+  const userClient = createAuthenticatedSupabaseClient(accessToken);
+  const { data, error } = await userClient.rpc('adjust_inventory_stock', {
+    p_inventory_id: id,
+    p_operation: adjustment.operation,
+    p_quantity: adjustment.quantity,
+    p_transaction_type: adjustment.transaction_type,
+    p_reason: adjustment.reason,
+    p_performed_by: adjustment.performed_by,
+  });
+
+  if (error) throw error;
+  return Array.isArray(data) ? data[0] : data;
 };
 
 // Soft delete inventory item
@@ -102,15 +99,19 @@ export const deleteInventory = async (id, accessToken) => {
 export const getInventorySummary = async () => {
   const { data, error } = await supabase
     .from(INVENTORY_TABLE)
-    .select('id, price, stock_qty, low_stock_threshold')
-    .is('deleted_at', null);
+    .select('id, quantity_on_hand, available_quantity, low_stock_threshold, product:products(price)');
   
   if (error) throw error;
   
-  const totalValue = data.reduce((sum, item) => sum + (item.price * item.stock_qty), 0);
-  const lowStockCount = data.filter(item => item.stock_qty <= item.low_stock_threshold).length;
+  const totalValue = data.reduce(
+    (sum, item) => sum + (Number(item.product?.price || 0) * Number(item.quantity_on_hand)),
+    0,
+  );
+  const lowStockCount = data.filter(
+    (item) => Number(item.available_quantity) <= Number(item.low_stock_threshold),
+  ).length;
   const totalItems = data.length;
-  const totalQuantity = data.reduce((sum, item) => sum + item.stock_qty, 0);
+  const totalQuantity = data.reduce((sum, item) => sum + Number(item.quantity_on_hand), 0);
   
   return {
     totalValue: totalValue.toFixed(2),
@@ -125,24 +126,12 @@ export const getInventorySummary = async () => {
 export const getLowStockItems = async () => {
   const { data, error } = await supabase
     .from(INVENTORY_TABLE)
-    .select('*')
-    .is('deleted_at', null)
-    .lte('stock_qty', supabase.rpc('low_stock_threshold'))
-    .order('stock_qty', { ascending: true });
+    .select('*, product:products(id, name, sku, unit, price, image_url, is_active)');
+
+  if (error) throw error;
   
-  if (error) {
-    // Fallback if RPC doesn't work
-    const allData = await supabase
-      .from(INVENTORY_TABLE)
-      .select('*')
-      .is('deleted_at', null);
-    
-    if (allData.error) throw allData.error;
-    
-    return allData.data.filter(item => item.stock_qty <= item.low_stock_threshold)
-      .sort((a, b) => a.stock_qty - b.stock_qty);
-  }
-  
-  return data;
+  return data
+    .filter((item) => Number(item.available_quantity) <= Number(item.low_stock_threshold))
+    .sort((a, b) => Number(a.available_quantity) - Number(b.available_quantity));
 };
 

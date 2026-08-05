@@ -67,22 +67,35 @@ Repairs profile creation with a restricted `SECURITY DEFINER` trigger function s
 
 Replaces recursive profile role policies with restricted `SECURITY DEFINER` role helpers and limits direct profile updates to `full_name`.
 
+### `20260805000001_create_inventory_adjustments.sql`
+
+Preserves the retired product-like inventory table as `legacy_inventory`, creates
+the normalized product inventory balance and immutable transaction ledger, adds
+inventory unit and transaction enums, enables RLS, and installs the atomic
+`adjust_inventory_stock` RPC.
+
+### `20260805000002_initialize_product_inventory.sql`
+
+Backfills one zero-stock inventory row for every existing product and installs an
+`AFTER INSERT` product trigger so future catalog products receive inventory
+automatically.
+
 ## Database Schema Reference
 
-### Inventory Table
+### Inventory Table (current normalized schema)
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
 | id | UUID | PRIMARY KEY | Unique identifier |
-| name | VARCHAR(100) | NOT NULL | Product name |
-| category | product_category | NOT NULL | 'Wet' or 'Dry' |
-| price | DECIMAL(10,2) | NOT NULL, >= 0 | Unit price |
-| stock_qty | INTEGER | >= 0 | Current stock level |
-| low_stock_threshold | INTEGER | >= 0 | Alert threshold |
-| description | TEXT | Optional | Product details |
-| created_by | UUID | FK to auth.users | Creator reference |
-| created_at | TIMESTAMP | DEFAULT NOW() | Creation timestamp |
-| updated_at | TIMESTAMP | DEFAULT NOW() | Last update timestamp |
-| deleted_at | TIMESTAMP | DEFAULT NULL | Soft delete timestamp |
+| product_id | UUID | UNIQUE, FK to products | Catalog product |
+| quantity_on_hand | NUMERIC | >= 0 | Total physical stock |
+| reserved_quantity | NUMERIC | >= 0 | Stock reserved for orders |
+| available_quantity | NUMERIC | Generated | On hand minus reserved |
+| low_stock_threshold | NUMERIC | >= 0 | Low-stock boundary |
+| reorder_quantity | NUMERIC | >= 0 | Suggested reorder amount |
+| base_unit | inventory_unit_type | NOT NULL | Smallest tracked unit |
+| last_received_at | TIMESTAMPTZ | Optional | Most recent receipt |
+| created_at | TIMESTAMPTZ | DEFAULT NOW() | Creation timestamp |
+| updated_at | TIMESTAMPTZ | DEFAULT NOW() | Last update timestamp |
 
 ## Environment Setup
 
@@ -105,16 +118,16 @@ SUPABASE_PASSWORD=your-database-password
    supabase db push
    ```
 
-3. **Verify the table was created**:
+3. **Verify inventory was initialized**:
    - Go to https://app.supabase.com
    - Navigate to SQL Editor
-   - Run: `SELECT * FROM information_schema.tables WHERE table_name = 'inventory';`
+   - Run: `SELECT id, product_id, quantity_on_hand FROM public.inventory;`
 
 ## Troubleshooting
 
 If you encounter RLS policy errors:
 1. Ensure the user is authenticated
-2. Check that `created_by` matches the authenticated user's UUID
+2. Confirm the API forwards the authenticated caller's access token
 3. Verify RLS policies are enabled on the table
 
 For more information, see the [inventory setup guide](../../docs/INVENTORY_SETUP.md).

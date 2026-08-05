@@ -17,7 +17,23 @@ export const updateBrand = async (id, values, accessToken) => {
   return brand;
 };
 
-export const deleteBrand = async (id, accessToken) => {
+export const deleteBrand = async (id, accessToken, confirmed = false) => {
+  const existingBrand = await BrandRepository.getBrandById(id);
+  if (!existingBrand) throw notFound("Brand");
+
+  const productCount = await BrandRepository.countProductsByBrand(id, accessToken);
+
+  if (productCount > 0 && !confirmed) {
+    return { requiresConfirmation: true, productCount };
+  }
+
+  if (productCount > 0) {
+    const result = await BrandRepository.deleteBrandWithProducts(id, accessToken);
+    if (!result?.brandDeleted) throw notFound("Brand");
+    return { requiresConfirmation: false, deletedProducts: result.deletedProducts ?? productCount };
+  }
+
   const brand = await BrandRepository.deleteBrand(id, accessToken);
   if (!brand) throw notFound("Brand");
+  return { requiresConfirmation: false, deletedProducts: 0 };
 };
