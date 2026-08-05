@@ -1,29 +1,31 @@
-import { aj } from "../config/arcjet.js";
+import { aj, productReadAj } from "../config/arcjet.js";
 
-const arcjetMiddleware = async (req, res, next) => {
+export const createArcjetMiddleware = (client) => async (req, res, next) => {
   try {
-    const decision = await aj.protect(req, { requested: 1 });
+    const decision = await client.protect(req);
 
     if (decision.isDenied()) {
-      // Handle Rate Limiting
       if (decision.reason.isRateLimit()) {
         return res.status(429).json({ error: "Too many requests. Please try again later." });
       }
-      // Handle Bot Detection
+
       if (decision.reason.isBot()) {
         return res.status(403).json({ error: "Bot access is restricted." });
       }
 
-      // General Denial (Shield protection)
       return res.status(403).json({ error: "Access denied by security policy." });
     }
 
     next();
   } catch (error) {
     console.error(`Arcjet Error: ${error.message}`);
-    // Fail open for provider outages; application authorization still applies.
+
     next();
   }
 };
+
+const arcjetMiddleware = createArcjetMiddleware(aj);
+
+export const productReadArcjetMiddleware = createArcjetMiddleware(productReadAj);
 
 export default arcjetMiddleware;

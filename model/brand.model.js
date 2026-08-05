@@ -99,3 +99,26 @@ export const deleteBrand = async (id, accessToken) => {
 
   return data;
 };
+
+export const countProductsByBrand = async (id, accessToken) => {
+  const userClient = createAuthenticatedSupabaseClient(accessToken);
+  const { count, error } = await userClient
+    .from("products")
+    .select("id", { count: "exact", head: true })
+    .eq("brand_id", id);
+
+  if (error) throw error;
+
+  return count ?? 0;
+};
+
+export const deleteBrandWithProducts = async (id, accessToken) => {
+  const userClient = createAuthenticatedSupabaseClient(accessToken);
+  const { data, error } = await userClient.rpc("delete_brand_with_products", {
+    target_brand_id: id,
+  });
+
+  if (error) throw error;
+
+  return data;
+};

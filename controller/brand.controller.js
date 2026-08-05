@@ -44,8 +44,26 @@ export const updateBrand = async (req, res, next) => {
 
 export const deleteBrand = async (req, res, next) => {
   try {
-    await BrandService.deleteBrand(req.params.id, req.accessToken);
-    res.status(200).json({ success: true, message: "Brand deleted successfully." });
+    const confirmed = parseOptionalBoolean(req.query.confirm, "confirm") ?? false;
+    const result = await BrandService.deleteBrand(req.params.id, req.accessToken, confirmed);
+
+    if (result.requiresConfirmation) {
+      return res.status(409).json({
+        success: false,
+        code: "BRAND_DELETE_CONFIRMATION_REQUIRED",
+        error: `This brand has ${result.productCount} existing product(s). All of them will be deleted if you delete this brand.`,
+        data: {
+          brandId: req.params.id,
+          productCount: result.productCount,
+        },
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Brand deleted successfully.",
+      deletedProducts: result.deletedProducts,
+    });
   } catch (error) {
     next(error);
   }

@@ -468,7 +468,10 @@ Security: this endpoint requires an active admin or super-admin profile.
 DELETE /api/v1/brands/:id
 ```
 
-This operation permanently deletes the brand. Deletion fails when products still reference the brand.
+This operation permanently deletes the brand. If products reference the brand, the first request
+returns `409 BRAND_DELETE_CONFIRMATION_REQUIRED` with `data.productCount`; clients should show a
+confirmation dialog using the returned message. Repeat the request with `?confirm=true` to delete
+the products and brand together. A brand without products is deleted immediately.
 
 Security: this endpoint requires an active admin or super-admin profile.
 
