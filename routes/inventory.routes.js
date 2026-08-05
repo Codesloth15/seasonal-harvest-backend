@@ -5,7 +5,7 @@ import {
   getProductById,
   createProduct,
   updateProduct,
-  adjustStock,
+  adjustInventory,
   deleteProduct,
   getInventorySummary,
   getLowStockItems
@@ -14,7 +14,7 @@ import {
 const inventoryRouter = Router();
 
 // Get all products
-inventoryRouter.get('/', getAllProducts);
+inventoryRouter.get('/', authorize, getAllProducts);
 
 // Static routes must be registered before the dynamic /:id route.
 inventoryRouter.get('/reports/summary', getInventorySummary);
@@ -29,8 +29,8 @@ inventoryRouter.post('/', authorize, createProduct);
 // Update product (requires auth)
 inventoryRouter.put('/:id', authorize, updateProduct);
 
-// Adjust stock (add/subtract units)
-inventoryRouter.patch('/:id/stock', authorize, adjustStock);
+// Operation-based adjustment endpoint. Authentication is ready for admin-role middleware.
+inventoryRouter.post('/:id/adjust', authorize, adjustInventory);
 
 // Delete product (soft delete)
 inventoryRouter.delete('/:id', authorize, deleteProduct);

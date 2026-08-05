@@ -60,15 +60,12 @@ Typical error response:
 | `POST` | `/api/v1/auth/reset-password` | Bearer token | Set a new password using a recovery session |
 | `POST` | `/api/v1/auth/sign-out` | Bearer token | Revoke Supabase refresh sessions |
 | `GET` | `/api/v1/auth/me` | Bearer token | Return the authenticated user |
-| `GET` | `/api/v1/inventory` | Public | List active inventory items |
+| `GET` | `/api/v1/inventory` | Bearer token | List product inventory balances |
 | `GET` | `/api/v1/inventory/reports/summary` | Public | Return inventory totals; currently shadowed by `/:id` |
 | `GET` | `/api/v1/inventory/reports/low-stock` | Public | Return low-stock items; currently shadowed by `/:id` |
 | `GET` | `/api/v1/inventory/:id` | Public | Get an inventory item |
 | `POST` | `/api/v1/assistant/chat` | Admin bearer token | Ask the read-only AI assistant about live products and inventory |
-| `POST` | `/api/v1/inventory` | Bearer token | Create an inventory item |
-| `PUT` | `/api/v1/inventory/:id` | Bearer token | Update an inventory item |
-| `PATCH` | `/api/v1/inventory/:id/stock` | Bearer token | Adjust stock quantity |
-| `DELETE` | `/api/v1/inventory/:id` | Bearer token | Soft-delete an inventory item |
+| `POST` | `/api/v1/inventory/:id/adjust` | Bearer token | Atomically add or subtract stock and record a transaction |
 | `GET` | `/api/v1/products` | Public | List products |
 | `GET` | `/api/v1/products/:id` | Public | Get a product |
 | `POST` | `/api/v1/products` | Admin or super admin | Create a product |
@@ -250,17 +247,19 @@ Requests a global Supabase sign-out. The frontend must also remove its locally s
 
 ```http
 GET /api/v1/inventory
+Authorization: Bearer <access-token>
 ```
 
 Optional query parameters:
 
 | Parameter | Example | Description |
 |---|---|---|
-| `category` | `Wet` | Filter by inventory category |
-| `sort` | `created_at` | Column used for sorting |
+| `sort` | `created_at` | Supported inventory column used for sorting |
 | `order` | `asc` or `desc` | Sort direction; defaults to `desc` |
 
-Soft-deleted items are excluded.
+Each inventory row includes related product fields (`id`, `name`, `sku`, `unit`,
+`price`, `image_url`, and `is_active`). The image remains owned by the product
+and is not duplicated in inventory.
 
 ### Inventory summary
 
@@ -288,9 +287,8 @@ This static route is registered before `/:id`, so Express resolves it correctly.
 GET /api/v1/inventory/reports/low-stock
 ```
 
-Returns active items whose `stock_qty` is less than or equal to `low_stock_threshold`.
-
-Current limitation: this route is also shadowed by `/:id` and must be moved before it.
+Returns items whose generated `available_quantity` is less than or equal to
+`low_stock_threshold`.
 
 ### Get inventory item
 
@@ -304,52 +302,11 @@ Path parameters:
 |---|---|
 | `id` | Inventory UUID |
 
-### Create inventory item
-
-```http
-POST /api/v1/inventory
-Authorization: Bearer <access-token>
-Content-Type: application/json
-```
-
-Request body:
-
-```json
-{
-  "name": "Fresh Chicken",
-  "category": "Wet",
-  "price": 250,
-  "stock_qty": 20,
-  "low_stock_threshold": 5,
-  "description": "Fresh whole chicken"
-}
-```
-
-Required fields: `name`, `category`, and `price`. The authenticated user's Supabase ID is stored as `created_by`.
-
-### Update inventory item
-
-```http
-PUT /api/v1/inventory/:id
-Authorization: Bearer <access-token>
-Content-Type: application/json
-```
-
-Accepted fields:
-
-- `name`
-- `category`
-- `price`
-- `low_stock_threshold`
-- `description`
-
-Stock changes should use the dedicated stock endpoint.
-
 ### Adjust inventory stock
 
 ```http
-PATCH /api/v1/inventory/:id/stock
-Authorization: Bearer <access-token>
+POST /api/v1/inventory/:id/adjust
+Authorization: Bearer <admin-access-token>
 Content-Type: application/json
 ```
 
@@ -357,20 +314,17 @@ Request body:
 
 ```json
 {
-  "adjustment": -2
+  "operation": "SUBTRACT",
+  "quantity": 3,
+  "transaction_type": "DAMAGED",
+  "reason": "Three packs were damaged"
 }
 ```
 
-Use a positive number to add stock and a negative number to subtract stock. The resulting quantity cannot be below zero.
-
-### Delete inventory item
-
-```http
-DELETE /api/v1/inventory/:id
-Authorization: Bearer <access-token>
-```
-
-This is a soft delete. The backend sets `deleted_at` instead of permanently removing the record.
+`quantity` must always be positive. `operation` determines its sign. The backend
+uses the authenticated user's UUID for `performed_by`, prevents available stock
+from becoming negative, and writes an immutable transaction in the same database
+operation. Inventory rows are created automatically when products are created.
 
 ## Product endpoints
 

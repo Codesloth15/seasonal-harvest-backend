@@ -1,0 +1,7 @@
+# Default owner for all repository changes.
+* @Codesloth15
+
+# Keep ownership explicit for security- and data-sensitive areas.
+/.github/ @Codesloth15
+/middleware/ @Codesloth15
+/supabase/migrations/ @Codesloth15
