@@ -65,6 +65,8 @@ Each product:
 - may belong to one brand
 - can be used in many order items
 - can have one inventory record
+- uses `price` per product `unit`, which becomes the inventory base unit
+- can have package conversion such as `1 BALE = 15 PIECE`
 
 ---
 
@@ -461,5 +463,6 @@ Allowed
 - Product analytics
 - Bulk import/export
 - Barcode scanning
-- Low stock indicators
+- Low-stock notification UI
+- Package-aware inventory configuration and stock movement history are implemented
 - Product audit logs

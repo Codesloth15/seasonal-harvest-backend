@@ -73,7 +73,7 @@ Currently mounted route groups:
 
 | Base path | Router | Purpose |
 |---|---|---|
-| `/api/v1/inventory` | `routes/inventory.routes.js` | Inventory CRUD, stock adjustment, and reports |
+| `/api/v1/inventory` | `routes/inventory.routes.js` | Balances, package configuration, atomic adjustments, transaction history, and reports |
 | `/api/v1/products` | `routes/product.routes.js` | Product catalog CRUD |
 | `/api/v1/brands` | `routes/brand.route.js` | Brand CRUD |
 | `/api/v1/categories` | `routes/category.routes.js` | Category CRUD |
@@ -90,7 +90,7 @@ Controllers read `req.params`, `req.query`, and `req.body`; perform request-leve
 
 Despite the directory name, the active Supabase model files act as repositories or data-access modules rather than ORM entity definitions:
 
-- `inventory.model.js` queries `inventory`, implements soft deletion, adjusts stock, and calculates reports.
+- `inventory.model.js` queries balances and transactions, configures packaging, adjusts stock through an RPC, and calculates reports.
 - `product.model.js` queries `products`, validates product fields and PHP prices, and permanently deletes products through the admin-protected endpoint.
 - `brand.model.js` queries `brands` and permanently deletes brands through the authenticated Supabase client.
 - `category.model.js` queries `categories` and uses a user-scoped Supabase client for protected writes.
@@ -199,7 +199,12 @@ seasonal-harvest-backend/
 
 ### Inventory
 
-The committed migrations define the `inventory` table with UUID identifiers, wet/dry categories, price and stock constraints, soft deletion through `deleted_at`, ownership through `created_by`, automatic timestamps, RLS policies, and audit logging.
+The normalized `inventory` table stores one balance per product in its priced
+`base_unit`. Optional `package_unit` and `units_per_package` fields support inputs
+such as `1 BALE = 15 PIECE`. The immutable `inventory_transactions` ledger keeps
+the requested unit/quantity, conversion factor, signed base-unit change,
+before/after balances, reason, actor, and timestamp. Atomic RPC adjustment,
+low-stock thresholds, timestamps, indexes, constraints, and RLS are committed.
 
 ### Products and brands
 

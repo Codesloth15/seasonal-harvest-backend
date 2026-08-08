@@ -14,13 +14,35 @@ A source file by itself does not qualify as `DONE`. The feature must be mounted,
 
 Confirmed defects and technical risks are tracked separately in `BUGS.md`.
 
+## Current top priority: inventory frontend integration
+
+Inventory is the immediate release priority. Do not start lower-priority feature
+work until the frontend can complete and verify this flow against the active
+Supabase database and backend on port `5500`.
+
+| Priority | Required frontend/backend verification | Status |
+|---|---|---|
+| `P0` | Fetch and render `GET /api/v1/inventory` using the current bearer token | `PARTIAL` — endpoint is implemented; live frontend verification is required |
+| `P0` | Display `available_quantity` in `base_unit`, plus `package_unit` and `units_per_package` when configured | `PARTIAL` — API fields are implemented; UI verification is required |
+| `P0` | Configure `1 BALE = 15 PIECE` through `PUT /api/v1/inventory/:id/packaging` | `PARTIAL` — code and migration are ready; verify the manually applied remote schema |
+| `P0` | Add one bale and confirm the balance increases by 15 pieces through `POST /api/v1/inventory/:id/adjust` | `PARTIAL` — requires live end-to-end verification |
+| `P0` | Subtract pieces or packages without allowing available stock to become negative | `PARTIAL` — server validation exists; verify frontend error handling |
+| `P0` | Load adjustment history from `GET /api/v1/inventory/:id/transactions` and show requested and converted quantities | `PARTIAL` — endpoint is implemented; live frontend verification is required |
+| `P0` | Refresh inventory, summary, and low-stock views after every successful adjustment | `NONE` — frontend integration required |
+| `P1` | Add pagination to the main inventory list | `NONE` |
+
+Acceptance example: a chicken product priced at PHP 210 per `PIECE`, configured
+with `package_unit = BALE` and `units_per_package = 15`, must convert an ADD of
+`1 BALE` into `quantity_change = 15 PIECE`. The transaction log must retain both
+the requested bale and the converted piece quantity.
+
 ## Progress summary
 
 | Area | Done | Partial | None |
 |---|---:|---:|---:|
 | Application foundation | 11 | 0 | 1 |
 | Authentication and security | 13 | 0 | 9 |
-| Inventory | 12 | 0 | 1 |
+| Inventory | 12 | 0 | 2 |
 | Products | 9 | 1 | 2 |
 | Brands | 8 | 0 | 2 |
 | Categories | 8 | 0 | 2 |
@@ -29,7 +51,7 @@ Confirmed defects and technical risks are tracked separately in `BUGS.md`.
 | Notifications and workflows | 0 | 0 | 6 |
 | AI and analytics | 0 | 1 | 10 |
 | Quality and operations | 4 | 1 | 10 |
-| **Total** | **70** | **3** | **59** |
+| **Total** | **70** | **3** | **60** |
 
 The counts are a planning snapshot and should be updated whenever a feature changes status.
 
@@ -83,17 +105,18 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 |---|---|---|
 | List inventory | `DONE` | `GET /api/v1/inventory` |
 | Get inventory item | `DONE` | `GET /api/v1/inventory/:id` |
-| Create inventory item | `DONE` | Authenticated POST forwards the caller token through service and repository layers |
-| Update inventory item | `DONE` | Authenticated PUT forwards the caller token for ownership RLS |
-| Adjust stock | `DONE` | Authenticated PATCH endpoint prevents negative stock |
-| Soft-delete inventory item | `DONE` | Authenticated DELETE sets `deleted_at` |
-| Inventory table migration | `DONE` | Migration includes constraints, indexes, and timestamps |
-| Inventory ownership RLS | `DONE` | Select/insert/update/delete policies are committed |
+| Automatic inventory creation | `DONE` | Product insert trigger creates one zero-stock balance per product |
+| Configure package conversion | `DONE` | `PUT /api/v1/inventory/:id/packaging` separates priced base units from receiving packages |
+| Adjust stock | `DONE` | Authenticated POST converts package quantities and prevents negative available stock |
+| Normalized inventory migration | `DONE` | Balance, package conversion, transaction ledger, constraints, indexes, and timestamps are committed |
+| Inventory RLS | `DONE` | Authenticated balance and transaction policies are committed |
 | Reachable summary report route | `DONE` | Static report route is registered before `/:id` |
 | Reachable low-stock route | `DONE` | Static report route is registered before `/:id` |
 | Atomic stock adjustment | `DONE` | `adjust_inventory_stock` locks the row, prevents negative available stock, updates the balance, and writes its ledger entry atomically |
-| Stock movement ledger | `DONE` | Every adjustment records operation, signed change, before/after quantities, reason, authenticated actor, and timestamp |
+| Stock movement ledger | `DONE` | Every adjustment records requested unit/quantity, conversion, signed base-unit change, balances, reason, actor, and timestamp |
+| Transaction history API | `DONE` | `GET /api/v1/inventory/:id/transactions` supports operation filtering and pagination |
 | Pagination | `NONE` | Add validated limit/cursor behavior for inventory lists |
+| Inventory purchase-cost tracking | `NONE` | Record the purchase price per base unit for every stock addition and calculate the total budget invested in stored products. Preserve the purchase-price snapshot for each addition so later price changes do not alter history. This feature tracks inventory investment only, not sales revenue or income. |
 
 ## Products
 

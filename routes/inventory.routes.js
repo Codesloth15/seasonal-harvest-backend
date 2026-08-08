@@ -8,7 +8,9 @@ import {
   adjustInventory,
   deleteProduct,
   getInventorySummary,
-  getLowStockItems
+  getLowStockItems,
+  getInventoryTransactions,
+  configureInventoryPackaging
 } from "../controller/inventory.controller.js";
 
 const inventoryRouter = Router();
@@ -19,6 +21,10 @@ inventoryRouter.get('/', authorize, getAllProducts);
 // Static routes must be registered before the dynamic /:id route.
 inventoryRouter.get('/reports/summary', getInventorySummary);
 inventoryRouter.get('/reports/low-stock', getLowStockItems);
+
+// Immutable ADD/SUBTRACT adjustment history for one inventory item.
+inventoryRouter.get('/:id/transactions', authorize, getInventoryTransactions);
+inventoryRouter.put('/:id/packaging', authorize, configureInventoryPackaging);
 
 // Get single product
 inventoryRouter.get('/:id', getProductById);

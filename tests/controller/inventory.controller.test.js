@@ -2,9 +2,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../services/inventory.service.js", () => ({
   adjustInventoryStock: vi.fn(),
+  getInventoryTransactions: vi.fn(),
+  configureInventoryPackaging: vi.fn(),
 }));
 
-import { adjustInventory } from "../../controller/inventory.controller.js";
+import { adjustInventory, getInventoryTransactions } from "../../controller/inventory.controller.js";
 import * as InventoryService from "../../services/inventory.service.js";
 
 describe("inventory controller", () => {
@@ -35,6 +37,33 @@ describe("inventory controller", () => {
       success: true,
       message: "Inventory adjusted successfully.",
       data,
+    });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("returns paginated inventory transaction history", async () => {
+    const result = {
+      items: [{ id: "transaction-1", operation: "ADD" }],
+      pagination: { page: 1, limit: 20, total: 1, totalPages: 1 },
+    };
+    InventoryService.getInventoryTransactions.mockResolvedValue(result);
+    const res = { status: vi.fn(), json: vi.fn() };
+    res.status.mockReturnValue(res);
+    const next = vi.fn();
+
+    await getInventoryTransactions(
+      { params: { id: "inventory-id" }, query: { operation: "ADD" }, accessToken: "token" },
+      res,
+      next,
+    );
+
+    expect(InventoryService.getInventoryTransactions).toHaveBeenCalledWith(
+      "inventory-id", { operation: "ADD" }, "token",
+    );
+    expect(res.json).toHaveBeenCalledWith({
+      success: true,
+      data: result.items,
+      pagination: result.pagination,
     });
     expect(next).not.toHaveBeenCalled();
   });

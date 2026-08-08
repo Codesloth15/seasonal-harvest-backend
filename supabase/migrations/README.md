@@ -80,6 +80,22 @@ Backfills one zero-stock inventory row for every existing product and installs a
 `AFTER INSERT` product trigger so future catalog products receive inventory
 automatically.
 
+### `20260805000003_set_default_low_stock_threshold.sql`
+
+Sets the default low-stock threshold to 10 and updates inventory rows that still
+use the previous zero threshold.
+
+### `20260805000004_preserve_inventory_packaging_units.sql`
+
+Maps singular, plural, and abbreviated product units to inventory units and
+updates existing inventory so crates, boxes, bales, packs, and pieces remain distinct.
+
+### `20260805000005_add_inventory_package_conversion.sql`
+
+Separates the priced base unit from an optional receiving package unit, records
+the conversion on adjustment transactions, and converts package adjustments to
+base-unit stock atomically.
+
 ## Database Schema Reference
 
 ### Inventory Table (current normalized schema)
@@ -90,9 +106,11 @@ automatically.
 | quantity_on_hand | NUMERIC | >= 0 | Total physical stock |
 | reserved_quantity | NUMERIC | >= 0 | Stock reserved for orders |
 | available_quantity | NUMERIC | Generated | On hand minus reserved |
-| low_stock_threshold | NUMERIC | >= 0 | Low-stock boundary |
+| low_stock_threshold | NUMERIC | >= 0, DEFAULT 10 | Low-stock boundary (available quantity <= 10 by default) |
 | reorder_quantity | NUMERIC | >= 0 | Suggested reorder amount |
 | base_unit | inventory_unit_type | NOT NULL | Smallest tracked unit |
+| package_unit | inventory_unit_type | Optional | Receiving package such as `BALE` |
+| units_per_package | NUMERIC | > 1 when packaged | Base units contained in one package |
 | last_received_at | TIMESTAMPTZ | Optional | Most recent receipt |
 | created_at | TIMESTAMPTZ | DEFAULT NOW() | Creation timestamp |
 | updated_at | TIMESTAMPTZ | DEFAULT NOW() | Last update timestamp |
