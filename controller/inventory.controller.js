@@ -94,3 +94,33 @@ export const getLowStockItems = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getInventoryTransactions = async (req, res, next) => {
+  try {
+    const result = await InventoryService.getInventoryTransactions(
+      req.params.id,
+      req.query,
+      req.accessToken,
+    );
+    res.status(200).json({ success: true, data: result.items, pagination: result.pagination });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const configureInventoryPackaging = async (req, res, next) => {
+  try {
+    const inventory = await InventoryService.configureInventoryPackaging(
+      req.params.id,
+      req.body,
+      req.accessToken,
+    );
+    res.status(200).json({
+      success: true,
+      message: "Inventory packaging configured successfully.",
+      data: inventory,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

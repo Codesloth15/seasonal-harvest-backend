@@ -61,11 +61,13 @@ Typical error response:
 | `POST` | `/api/v1/auth/sign-out` | Bearer token | Revoke Supabase refresh sessions |
 | `GET` | `/api/v1/auth/me` | Bearer token | Return the authenticated user |
 | `GET` | `/api/v1/inventory` | Bearer token | List product inventory balances |
-| `GET` | `/api/v1/inventory/reports/summary` | Public | Return inventory totals; currently shadowed by `/:id` |
-| `GET` | `/api/v1/inventory/reports/low-stock` | Public | Return low-stock items; currently shadowed by `/:id` |
+| `GET` | `/api/v1/inventory/reports/summary` | Public route | Return inventory totals |
+| `GET` | `/api/v1/inventory/reports/low-stock` | Public route | Return low-stock items |
 | `GET` | `/api/v1/inventory/:id` | Public | Get an inventory item |
 | `POST` | `/api/v1/assistant/chat` | Admin bearer token | Ask the read-only AI assistant about live products and inventory |
+| `PUT` | `/api/v1/inventory/:id/packaging` | Bearer token | Configure base/package conversion |
 | `POST` | `/api/v1/inventory/:id/adjust` | Bearer token | Atomically add or subtract stock and record a transaction |
+| `GET` | `/api/v1/inventory/:id/transactions` | Bearer token | Return paginated ADD/SUBTRACT history |
 | `GET` | `/api/v1/products` | Public | List products |
 | `GET` | `/api/v1/products/:id` | Public | Get a product |
 | `POST` | `/api/v1/products` | Admin or super admin | Create a product |
@@ -259,7 +261,8 @@ Optional query parameters:
 
 Each inventory row includes related product fields (`id`, `name`, `sku`, `unit`,
 `price`, `image_url`, and `is_active`). The image remains owned by the product
-and is not duplicated in inventory.
+and is not duplicated in inventory. Stock is held in `base_unit`; optional
+`package_unit` and `units_per_package` fields describe receiving conversion.
 
 ### Inventory summary
 
@@ -302,6 +305,27 @@ Path parameters:
 |---|---|
 | `id` | Inventory UUID |
 
+### Configure inventory packaging
+
+```http
+PUT /api/v1/inventory/:id/packaging
+Authorization: Bearer <access-token>
+Content-Type: application/json
+```
+
+For a product priced at PHP 210 per piece and received as 15-piece bales:
+
+```json
+{
+  "base_unit": "PIECE",
+  "package_unit": "BALE",
+  "units_per_package": 15
+}
+```
+
+`base_unit` is used for product price, stock balance, valuation, and low-stock
+calculations. `package_unit` is an accepted adjustment input unit.
+
 ### Adjust inventory stock
 
 ```http
@@ -314,17 +338,32 @@ Request body:
 
 ```json
 {
-  "operation": "SUBTRACT",
-  "quantity": 3,
-  "transaction_type": "DAMAGED",
-  "reason": "Three packs were damaged"
+  "operation": "ADD",
+  "quantity": 1,
+  "unit": "BALE",
+  "transaction_type": "STOCK_RECEIVED",
+  "reason": "Received one 15-piece bale"
 }
 ```
 
 `quantity` must always be positive. `operation` determines its sign. The backend
 uses the authenticated user's UUID for `performed_by`, prevents available stock
 from becoming negative, and writes an immutable transaction in the same database
-operation. Inventory rows are created automatically when products are created.
+operation. With the configuration above, `1 BALE` produces a base-unit
+`quantity_change` of `15 PIECE`. If `unit` is omitted, the base unit is used.
+Inventory rows are created automatically when products are created.
+
+### Inventory transaction history
+
+```http
+GET /api/v1/inventory/:id/transactions?operation=ADD&page=1&limit=20
+Authorization: Bearer <access-token>
+```
+
+`operation` is optional and accepts `ADD` or `SUBTRACT`. `page` defaults to 1;
+`limit` defaults to 20 and cannot exceed 100. Each row includes the requested
+package quantity/unit, conversion factor, signed base-unit change, previous/new
+balances, reason, actor, timestamp, and related product.
 
 ## Product endpoints
 

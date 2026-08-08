@@ -71,6 +71,7 @@ export const adjustStock = async (id, adjustment, accessToken) => {
     p_inventory_id: id,
     p_operation: adjustment.operation,
     p_quantity: adjustment.quantity,
+    p_unit: adjustment.unit ?? null,
     p_transaction_type: adjustment.transaction_type,
     p_reason: adjustment.reason,
     p_performed_by: adjustment.performed_by,
@@ -78,6 +79,19 @@ export const adjustStock = async (id, adjustment, accessToken) => {
 
   if (error) throw error;
   return Array.isArray(data) ? data[0] : data;
+};
+
+export const updateInventoryPackaging = async (id, packaging, accessToken) => {
+  const userClient = createAuthenticatedSupabaseClient(accessToken);
+  const { data, error } = await userClient
+    .from(INVENTORY_TABLE)
+    .update(packaging)
+    .eq('id', id)
+    .select('*, product:products(id, name, sku, unit, price, image_url, is_active)')
+    .single();
+
+  if (error) throw error;
+  return data;
 };
 
 // Soft delete inventory item
@@ -133,5 +147,40 @@ export const getLowStockItems = async () => {
   return data
     .filter((item) => Number(item.available_quantity) <= Number(item.low_stock_threshold))
     .sort((a, b) => Number(a.available_quantity) - Number(b.available_quantity));
+};
+
+// Get immutable adjustment history for one inventory item
+export const getInventoryTransactions = async (inventoryId, filters = {}, accessToken) => {
+  const client = createAuthenticatedSupabaseClient(accessToken);
+  const page = filters.page;
+  const limit = filters.limit;
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
+
+  let query = client
+    .from('inventory_transactions')
+    .select(
+      '*, product:products(id, name, sku, unit, image_url)',
+      { count: 'exact' },
+    )
+    .eq('inventory_id', inventoryId)
+    .order('created_at', { ascending: false })
+    .range(from, to);
+
+  if (filters.operation) query = query.eq('operation', filters.operation);
+
+  const { data, error, count } = await query;
+  if (error) throw error;
+
+  const total = count ?? 0;
+  return {
+    items: data,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: total === 0 ? 0 : Math.ceil(total / limit),
+    },
+  };
 };
 

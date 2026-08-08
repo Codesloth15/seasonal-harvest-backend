@@ -39,7 +39,7 @@ The HTML report is generated under `coverage/` and is excluded from Git.
 | `tests/migrations/catalog-migrations.test.js` | Brand/product constraints, relationships, RLS, policies, and least-privilege grants |
 | `tests/services/auth.service.test.js` | Supabase Auth calls, authenticated REST requests, errors, password update, and logout |
 | `tests/services/category.service.test.js` | Category use cases and typed not-found behavior |
-| `tests/services/inventory.service.test.js` | Inventory validation, authenticated writes, updates, and stock adjustment |
+| `tests/services/inventory.service.test.js` | Inventory validation, package conversion configuration, transaction filters, authenticated writes, and stock adjustment |
 
 The suite contains 76 passing tests. Coverage is enforced for the security-sensitive and refactored modules, including Arcjet request decisions.
 

@@ -153,6 +153,19 @@ The backend passes the user's access token to a user-scoped Supabase client for 
 
 ## Inventory CRUD
 
+> **Current normalized model:** The original product-like inventory CRUD below
+> describes `20260424000001_create_inventory_table.sql` and is retained only as
+> migration history. It was superseded by migrations `20260805000001` through
+> `20260805000005`. The frontend must create/edit catalog data through `/products`,
+> configure conversion through `PUT /inventory/:id/packaging`, change stock through
+> `POST /inventory/:id/adjust`, and read its ledger through
+> `GET /inventory/:id/transactions`.
+
+The current schema stores one balance per product in a priced `base_unit`, with
+optional `package_unit` and `units_per_package`. For example, a PHP 210 `PIECE`
+may be received as a `BALE` containing 15 pieces. The atomic adjustment RPC
+converts the request into pieces and records both requested and converted values.
+
 The inventory migration defines:
 
 - UUID primary key
@@ -175,7 +188,8 @@ Inventory access in the committed migration:
 
 Inventory mutation routes verify the user and pass the caller's bearer token to a user-scoped Supabase client. This allows `auth.uid()` and ownership-based RLS to evaluate the actual caller.
 
-Stock adjustment also uses a read-then-write sequence. Replace it with an atomic PostgreSQL function before high-concurrency production use.
+The legacy flow used a read-then-write sequence. The current normalized flow uses
+the atomic `adjust_inventory_stock` RPC with row locking and an immutable ledger.
 
 ## Brands CRUD
 
