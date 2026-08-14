@@ -99,12 +99,20 @@ adds 15 to `quantity_on_hand`. Unknown or empty product units fall back to `PIEC
 | `PUT` | `/inventory/:inventoryId/packaging` | Bearer token | Available |
 | `POST` | `/inventory/:inventoryId/adjust` | Bearer token | Available |
 | `GET` | `/inventory/:inventoryId/transactions` | Bearer token | Available |
+| `GET` | `/analytics/dashboard` | Admin or super-admin bearer token | Available; consolidated inventory KPIs and movement trends |
+| `GET` | `/analytics/transactions` | Admin or super-admin bearer token | Available; paginated global transaction ledger |
 | `POST` | `/inventory` | Bearer token | Legacy handler; do not use with normalized inventory |
 | `PUT` | `/inventory/:inventoryId` | Bearer token | Legacy handler; do not use with normalized inventory |
 | `DELETE` | `/inventory/:inventoryId` | Bearer token | Legacy handler; do not use with normalized inventory |
 
 Create and edit product information through the product endpoints. Inventory is
 created automatically and stock changes must use the adjustment endpoint.
+Admin dashboards should use `/api/v1/analytics/dashboard` for consolidated
+catalog totals, inventory KPIs, and date-filtered stock-movement chart data.
+The endpoint supports `from`, `to`, and `granularity=day|week|month`.
+Use `/api/v1/analytics/transactions` to show a dashboard activity table across
+all products. It supports optional `from`, `to`, `operation`, and
+`transactionType` filters plus `page` and `limit` pagination.
 
 ## Standard response shape
 

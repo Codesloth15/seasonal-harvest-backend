@@ -1,6 +1,12 @@
 # Backend Feature Progress
 
-Last reviewed: August 5, 2026
+Last reviewed: August 14, 2026
+
+Repository audit: August 14, 2026. The current routes, services, migrations,
+tests, and CI workflow were compared with every `PARTIAL` and `NONE` entry.
+The completed atomic inventory adjustment, stock ledger, transaction
+pagination, AI assistant foundation, dashboard analytics endpoint, and global
+dashboard transaction log are represented below.
 
 ## Status definitions
 
@@ -42,16 +48,16 @@ the requested bale and the converted piece quantity.
 |---|---:|---:|---:|
 | Application foundation | 11 | 0 | 1 |
 | Authentication and security | 13 | 0 | 9 |
-| Inventory | 12 | 0 | 2 |
+| Inventory | 13 | 0 | 2 |
 | Products | 9 | 1 | 2 |
 | Brands | 8 | 0 | 2 |
 | Categories | 8 | 0 | 2 |
 | Users and roles | 5 | 0 | 6 |
 | Orders and fulfillment | 0 | 0 | 10 |
 | Notifications and workflows | 0 | 0 | 6 |
-| AI and analytics | 0 | 1 | 10 |
+| AI and analytics | 3 | 1 | 7 |
 | Quality and operations | 4 | 1 | 10 |
-| **Total** | **70** | **3** | **60** |
+| **Total** | **74** | **3** | **57** |
 
 The counts are a planning snapshot and should be updated whenever a feature changes status.
 
@@ -115,6 +121,7 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | Atomic stock adjustment | `DONE` | `adjust_inventory_stock` locks the row, prevents negative available stock, updates the balance, and writes its ledger entry atomically |
 | Stock movement ledger | `DONE` | Every adjustment records requested unit/quantity, conversion, signed base-unit change, balances, reason, actor, and timestamp |
 | Transaction history API | `DONE` | `GET /api/v1/inventory/:id/transactions` supports operation filtering and pagination |
+| Global dashboard transaction log | `DONE` | Admin-protected `GET /api/v1/analytics/transactions` browses the complete cross-product ledger with optional date, operation, and transaction-type filters plus validated pagination |
 | Pagination | `NONE` | Add validated limit/cursor behavior for inventory lists |
 | Inventory purchase-cost tracking | `NONE` | Record the purchase price per base unit for every stock addition and calculate the total budget invested in stored products. Preserve the purchase-price snapshot for each addition so later price changes do not alter history. This feature tracks inventory investment only, not sales revenue or income. |
 
@@ -215,14 +222,14 @@ than relying on model training knowledge or unrestricted database access.
 
 | Feature | Status | Required work |
 |---|---|---|
-| Total catalog product metric | `NONE` | Count active records from the product catalog separately from inventory rows |
-| Inventory trends | `NONE` | Build on a stock movement ledger to report stock changes over time |
+| Total catalog product metric | `DONE` | Admin-protected dashboard analytics report catalog totals separately from inventory rows, including active/inactive and branded/unbranded counts |
+| Inventory trends | `DONE` | `GET /api/v1/analytics/dashboard` returns ADD/SUBTRACT totals, net change, transaction count, and chart-ready daily, weekly, or monthly series; `GET /api/v1/analytics/transactions` exposes the complete ledger through validated filters and pagination |
 | Sales analytics | `NONE` | Aggregate completed order and immutable order-item data after the order module exists |
 | Revenue and order trends | `NONE` | Report revenue, order volume, and average order value by validated date range |
 | Best-selling products | `NONE` | Rank products by units sold and revenue while preserving historical order-item data |
 | Low-stock and restocking analytics | `NONE` | Identify urgent items and estimate replenishment needs from thresholds and movement history |
 | Category and brand performance | `NONE` | Compare product counts, inventory, units sold, and revenue by category and brand |
-| Dashboard analytics filters | `NONE` | Support validated daily, weekly, monthly, and custom date ranges |
+| Dashboard analytics filters | `DONE` | Dashboard analytics validates inclusive UTC `from`/`to` dates, caps ranges at 366 days, defaults to 30 days, and supports daily, Monday-based weekly, and monthly buckets |
 | Analytics export | `NONE` | Provide role-authorized CSV or spreadsheet exports with safe size limits |
 | AI product and inventory assistant | `PARTIAL` | Admin-protected `POST /api/v1/assistant/chat`, OpenAI Responses API integration, read-only product/inventory/brand/category tools, dedicated per-user limits, metadata-only structured audit events, safe provider-quota error mapping, and unit tests are connected. The development key reaches OpenAI, but live answer and tool verification remain blocked by `insufficient_quota`; fund the OpenAI project, then repeat the live OpenAI and Supabase-backed tool checks. |
 | AI analytics assistant | `NONE` | Translate natural-language questions into approved analytics operations with role enforcement, rate limits, and audit logs |
@@ -233,7 +240,7 @@ than relying on model training knowledge or unrestricted database access.
 |---|---|---|
 | ESLint configuration | `DONE` | ESLint is configured and authentication files pass linting |
 | Versioned Supabase migrations | `DONE` | Inventory, catalog, auth/role, RLS repair, and product-image Storage migrations are committed |
-| Automated unit tests and coverage | `DONE` | 121 Vitest tests pass, including AI tools and tool loops, AI request validation, AI rate limiting, safe AI audit metadata, provider quota error mapping, product-image upload, and error-response behavior, with enforced statement, branch, function, and line thresholds |
+| Automated unit tests and coverage | `DONE` | 155 Vitest tests across 27 files cover dashboard analytics aggregation, filters, paginated transaction logs, authenticated data access, AI tools and tool loops, AI request validation, AI rate limiting, safe AI audit metadata, provider quota error mapping, product-image upload, and error-response behavior, with enforced statement, branch, function, and line thresholds |
 | API integration tests | `NONE` | Test authentication, authorization, CRUD, RLS, and errors |
 | End-to-end frontend/backend tests | `NONE` | Cover registration, login, recovery, and main business flows |
 | CI pipeline | `PARTIAL` | Pull requests to `main` run dependency installation, ESLint, and all Vitest tests; migration checks and secret scanning remain |
@@ -254,13 +261,13 @@ Work should proceed in this order:
 1. Configure `FRONTEND_URL` and Supabase recovery redirects.
 2. Apply and verify the profile-RLS repair and product-image Storage migrations in the target Supabase project.
 3. Switch product creation in the frontend from Base64 JSON to the admin-authenticated multipart `image` flow.
-4. Make stock updates atomic and make SKU generation collision-safe.
+4. Make SKU generation collision-safe.
 5. Add authentication, authorization, Storage-policy, and RLS integration tests.
 6. Add security headers, stricter auth throttling, structured audit events, and secret scanning.
 7. Build users/roles administration.
 8. Build orders with transactional stock reservation and idempotent payment handling.
-9. Add the stock ledger, dashboard metrics, date filters, and analytics endpoints.
-10. Add the role-authorized AI product, inventory, and analytics assistant on top of verified backend queries.
+9. Extend the dashboard foundation with category/brand performance, replenishment analytics, and order-backed sales metrics when order data exists.
+10. Complete live verification of the role-authorized AI product and inventory assistant, then extend it with approved analytics operations.
 11. Add notifications, observability, backup verification, and deployment automation.
 
 ## Rules for updating this file

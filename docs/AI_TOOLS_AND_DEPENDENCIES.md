@@ -1,6 +1,6 @@
 # AI Tools and Dependencies
 
-Last reviewed: August 1, 2026
+Last reviewed: August 14, 2026
 
 ## Purpose
 
@@ -113,8 +113,8 @@ and safe error code. Prompts, answers, credentials, and access tokens are not lo
 
 ## Planned additions
 
-- Product totals and analytics tools after their backend endpoints exist
-- Stock movement trends after the stock ledger exists
+- Expose approved catalog totals and stock-movement trends to the assistant by
+  wrapping the role-protected dashboard analytics service in read-only AI tools
 - Sales and revenue tools after orders are implemented
 - Persistent conversations only after retention and deletion rules are approved
 - Streaming responses if the frontend needs progressive rendering

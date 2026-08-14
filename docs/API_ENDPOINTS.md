@@ -65,6 +65,8 @@ Typical error response:
 | `GET` | `/api/v1/inventory/reports/low-stock` | Public route | Return low-stock items |
 | `GET` | `/api/v1/inventory/:id` | Public | Get an inventory item |
 | `POST` | `/api/v1/assistant/chat` | Admin bearer token | Ask the read-only AI assistant about live products and inventory |
+| `GET` | `/api/v1/analytics/dashboard` | Admin bearer token | Return catalog, inventory, and stock-movement dashboard metrics |
+| `GET` | `/api/v1/analytics/transactions` | Admin bearer token | Browse the complete paginated inventory transaction log |
 | `PUT` | `/api/v1/inventory/:id/packaging` | Bearer token | Configure base/package conversion |
 | `POST` | `/api/v1/inventory/:id/adjust` | Bearer token | Atomically add or subtract stock and record a transaction |
 | `GET` | `/api/v1/inventory/:id/transactions` | Bearer token | Return paginated ADD/SUBTRACT history |
@@ -85,6 +87,51 @@ Typical error response:
 | `DELETE` | `/api/v1/categories/:id` | Admin or super admin | Delete a category |
 
 Product and brand mutations require authentication and an active admin or super-admin profile.
+
+## Analytics endpoints
+
+### Dashboard analytics
+
+```http
+GET /api/v1/analytics/dashboard?from=2026-08-01&to=2026-08-31&granularity=day
+Authorization: Bearer <admin-access-token>
+```
+
+This endpoint requires an active `admin` or `super_admin` profile. `from` and
+`to` are optional inclusive UTC calendar dates in `YYYY-MM-DD` format. The
+default range is the latest 30 calendar days, and the maximum range is 366
+days. `granularity` accepts `day`, `week`, or `month`; weeks start on Monday.
+
+The response contains:
+
+- Catalog totals for active, inactive, branded, and unbranded products.
+- Inventory quantities, reservations, low/out-of-stock counts, and retail
+  value in PHP. Retail value is current stock multiplied by catalog price; it
+  is not revenue, purchase cost, or realized profit.
+- ADD/SUBTRACT totals, net stock change, transaction count, and chart-ready
+  time-series buckets from the immutable inventory ledger.
+
+Sales, revenue, order trends, and best-seller metrics are intentionally absent
+until the order module and immutable order-item snapshots are implemented.
+
+### Dashboard transaction log
+
+```http
+GET /api/v1/analytics/transactions?from=2026-08-01&to=2026-08-31&operation=ADD&transactionType=STOCK_RECEIVED&page=1&limit=20
+Authorization: Bearer <admin-access-token>
+```
+
+This admin/super-admin endpoint returns all inventory ledger entries across all
+products through pagination. `from`, `to`, `operation`, and `transactionType`
+are optional. `operation` accepts `ADD` or `SUBTRACT`; `page` defaults to 1 and
+`limit` defaults to 20 with a maximum of 100. When both dates are supplied, the
+range cannot exceed 366 days. Omit the filters and advance through every page
+to browse the complete transaction history.
+
+Each row includes product identity, operation and transaction type, requested
+quantity/unit, package conversion, signed base-unit change, previous/new
+balances, reason, actor UUID, references, and creation time. The response has
+the standard `data` array plus `pagination` metadata.
 
 ## Category endpoints
 
@@ -516,8 +563,10 @@ Security: this endpoint requires an active admin or super-admin profile.
 
 ## Production readiness blockers
 
-- Protect product and brand mutations using authentication and role authorization.
-- Add migrations and RLS policies for products and brands.
 - Add pagination and strict query validation to collection endpoints.
-- Add role checks for employee, admin, and super-admin capabilities.
 - Add integration tests that verify Express authorization and Supabase RLS together.
+- Make SKU allocation collision-safe under concurrent product creation.
+- Verify pending migrations, product-image storage, dashboard analytics, and
+  role-protected requests against the target Supabase environment.
+- Add security headers, route-specific authentication throttling, secret
+  scanning, structured logging, and operational monitoring.
