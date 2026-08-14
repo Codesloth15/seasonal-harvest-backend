@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS public.inventory (
   quantity_on_hand NUMERIC NOT NULL DEFAULT 0 CHECK (quantity_on_hand >= 0),
   reserved_quantity NUMERIC NOT NULL DEFAULT 0 CHECK (reserved_quantity >= 0),
   available_quantity NUMERIC GENERATED ALWAYS AS (quantity_on_hand - reserved_quantity) STORED,
-  low_stock_threshold NUMERIC NOT NULL DEFAULT 0 CHECK (low_stock_threshold >= 0),
+  low_stock_threshold NUMERIC NOT NULL DEFAULT 10 CHECK (low_stock_threshold >= 0),
   reorder_quantity NUMERIC NOT NULL DEFAULT 0 CHECK (reorder_quantity >= 0),
   base_unit public.inventory_unit_type NOT NULL DEFAULT 'PIECE',
   last_received_at TIMESTAMPTZ,

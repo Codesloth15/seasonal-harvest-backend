@@ -55,6 +55,10 @@ const TRANSACTION_OPERATIONS = {
   ORDER_COMPLETED: "SUBTRACT",
 };
 const ADJUSTMENT_TYPES = new Set([...Object.keys(TRANSACTION_OPERATIONS), "MANUAL_ADJUSTMENT"]);
+const INVENTORY_UNITS = new Set([
+  "BOX", "PACK", "BALE", "PIECE", "SACK", "CRATE", "TRAY", "BUNDLE",
+  "KILOGRAM", "GRAM", "LITER", "MILLILITER",
+]);
 
 export const adjustInventoryStock = async (id, input, accessToken) => {
   const operation = typeof input?.operation === "string" ? input.operation.trim().toUpperCase() : "";
@@ -64,6 +68,7 @@ export const adjustInventoryStock = async (id, input, accessToken) => {
   const reason = typeof input?.reason === "string" ? input.reason.trim() : "";
   const performedBy = typeof input?.performed_by === "string" ? input.performed_by.trim() : "";
   const quantity = input?.quantity;
+  const unit = typeof input?.unit === "string" ? input.unit.trim().toUpperCase() : "";
 
   if (!ADJUSTMENT_OPERATIONS.has(operation)) {
     throw badRequest("Operation must be ADD or SUBTRACT.");
@@ -80,11 +85,19 @@ export const adjustInventoryStock = async (id, input, accessToken) => {
   if (!reason) throw badRequest("Reason is required.");
   if (reason.length > 1000) throw badRequest("Reason must not exceed 1000 characters.");
   if (!performedBy) throw badRequest("Performed by is required.");
+  if (unit && !INVENTORY_UNITS.has(unit)) throw badRequest("Adjustment unit is not supported.");
 
   try {
     return await InventoryRepository.adjustStock(
       id,
-      { operation, quantity, transaction_type: transactionType, reason, performed_by: performedBy },
+      {
+        operation,
+        quantity,
+        ...(unit ? { unit } : {}),
+        transaction_type: transactionType,
+        reason,
+        performed_by: performedBy,
+      },
       accessToken,
     );
   } catch (error) {
@@ -95,8 +108,51 @@ export const adjustInventoryStock = async (id, input, accessToken) => {
   }
 };
 
+export const configureInventoryPackaging = async (id, input, accessToken) => {
+  const baseUnit = typeof input?.base_unit === "string" ? input.base_unit.trim().toUpperCase() : "";
+  const packageUnit = typeof input?.package_unit === "string" ? input.package_unit.trim().toUpperCase() : "";
+  const unitsPerPackage = Number(input?.units_per_package);
+
+  if (!INVENTORY_UNITS.has(baseUnit)) throw badRequest("Base unit is not supported.");
+  if (!INVENTORY_UNITS.has(packageUnit)) throw badRequest("Package unit is not supported.");
+  if (baseUnit === packageUnit) throw badRequest("Package unit must differ from the base unit.");
+  if (!Number.isFinite(unitsPerPackage) || unitsPerPackage <= 1) {
+    throw badRequest("Units per package must be a number greater than 1.");
+  }
+
+  return InventoryRepository.updateInventoryPackaging(id, {
+    base_unit: baseUnit,
+    package_unit: packageUnit,
+    units_per_package: unitsPerPackage,
+  }, accessToken);
+};
+
 export const deleteInventoryItem = (id, accessToken) =>
   InventoryRepository.deleteInventory(id, accessToken);
 
 export const getInventorySummary = () => InventoryRepository.getInventorySummary();
 export const getLowStockItems = () => InventoryRepository.getLowStockItems();
+
+export const getInventoryTransactions = (id, input = {}, accessToken) => {
+  const operation = typeof input.operation === "string"
+    ? input.operation.trim().toUpperCase()
+    : "";
+  const page = input.page === undefined ? 1 : Number(input.page);
+  const limit = input.limit === undefined ? 20 : Number(input.limit);
+
+  if (operation && !ADJUSTMENT_OPERATIONS.has(operation)) {
+    throw badRequest("Operation must be ADD or SUBTRACT.");
+  }
+  if (!Number.isInteger(page) || page < 1) {
+    throw badRequest("Page must be a positive integer.");
+  }
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    throw badRequest("Limit must be an integer between 1 and 100.");
+  }
+
+  return InventoryRepository.getInventoryTransactions(
+    id,
+    { operation: operation || undefined, page, limit },
+    accessToken,
+  );
+};

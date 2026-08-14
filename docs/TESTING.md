@@ -30,6 +30,7 @@ The HTML report is generated under `coverage/` and is excluded from Git.
 
 | Test file | Coverage |
 |---|---|
+| `tests/controller/analytics.controller.test.js` | Dashboard and transaction-log query/token forwarding, pagination response shape, and error propagation |
 | `tests/config/cors.test.js` | Origin parsing, normalization, deduplication, and rejection behavior |
 | `tests/controller/auth.controller.test.js` | Sign-up, sign-in, recovery, reset, current user, logout, validation, and safe error mapping |
 | `tests/controller/category.controller.test.js` | Category list, lookup, create, update, delete, and not-found behavior |
@@ -37,18 +38,22 @@ The HTML report is generated under `coverage/` and is excluded from Git.
 | `tests/middleware/role.middleware.test.js` | Missing profile, inactive account, denied role, and allowed role behavior |
 | `tests/model/category.model.test.js` | Category filtering, normalization, safe fields, validation, and authenticated writes |
 | `tests/migrations/catalog-migrations.test.js` | Brand/product constraints, relationships, RLS, policies, and least-privilege grants |
+| `tests/model/analytics.model.test.js` | Authenticated Supabase reads, movement date bounds, filtered transaction pagination, result mapping, and database errors |
 | `tests/services/auth.service.test.js` | Supabase Auth calls, authenticated REST requests, errors, password update, and logout |
 | `tests/services/category.service.test.js` | Category use cases and typed not-found behavior |
-| `tests/services/inventory.service.test.js` | Inventory validation, authenticated writes, updates, and stock adjustment |
+| `tests/services/inventory.service.test.js` | Inventory validation, package conversion configuration, transaction filters, authenticated writes, and stock adjustment |
+| `tests/services/analytics.service.test.js` | Catalog/inventory KPIs, movement buckets, transaction-log filters/pagination, default dates, and invalid analytics filters |
 
-The suite contains 76 passing tests. Coverage is enforced for the security-sensitive and refactored modules, including Arcjet request decisions.
+The suite contains 155 passing tests across 27 test files. Coverage is enforced
+for the security-sensitive and refactored modules, including analytics access,
+date validation, aggregation, and Arcjet request decisions.
 
 | Metric | Coverage | Required threshold |
 |---|---:|---:|
-| Statements | 88.06% | 80% |
-| Branches | 79.31% | 75% |
-| Functions | 92.45% | 80% |
-| Lines | 91.28% | 80% |
+| Statements | 89.18% | 80% |
+| Branches | 79.55% | 75% |
+| Functions | 90.00% | 80% |
+| Lines | 91.78% | 80% |
 
 Coverage thresholds are defined in `vitest.config.js`. A coverage command fails when a threshold is not met.
 
@@ -85,7 +90,7 @@ Unit coverage is only the first layer. The project still needs:
 
 - API integration tests using an isolated Supabase test project or local Supabase stack.
 - RLS tests for anonymous users, employees, admins, super admins, owners, and non-owners.
-- Inventory, product, brand, role, and error-middleware unit tests.
+- Route-level integration tests for analytics, inventory, product, brand, role, and error behavior.
 - Concurrency tests for stock adjustment and SKU creation.
 - Frontend/backend end-to-end tests for registration, login, email confirmation, and password recovery.
 - CI enforcement for linting, unit tests, coverage, migration validation, dependency audit, and secret scanning.

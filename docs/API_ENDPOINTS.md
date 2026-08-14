@@ -61,11 +61,15 @@ Typical error response:
 | `POST` | `/api/v1/auth/sign-out` | Bearer token | Revoke Supabase refresh sessions |
 | `GET` | `/api/v1/auth/me` | Bearer token | Return the authenticated user |
 | `GET` | `/api/v1/inventory` | Bearer token | List product inventory balances |
-| `GET` | `/api/v1/inventory/reports/summary` | Public | Return inventory totals; currently shadowed by `/:id` |
-| `GET` | `/api/v1/inventory/reports/low-stock` | Public | Return low-stock items; currently shadowed by `/:id` |
+| `GET` | `/api/v1/inventory/reports/summary` | Public route | Return inventory totals |
+| `GET` | `/api/v1/inventory/reports/low-stock` | Public route | Return low-stock items |
 | `GET` | `/api/v1/inventory/:id` | Public | Get an inventory item |
 | `POST` | `/api/v1/assistant/chat` | Admin bearer token | Ask the read-only AI assistant about live products and inventory |
+| `GET` | `/api/v1/analytics/dashboard` | Admin bearer token | Return catalog, inventory, and stock-movement dashboard metrics |
+| `GET` | `/api/v1/analytics/transactions` | Admin bearer token | Browse the complete paginated inventory transaction log |
+| `PUT` | `/api/v1/inventory/:id/packaging` | Bearer token | Configure base/package conversion |
 | `POST` | `/api/v1/inventory/:id/adjust` | Bearer token | Atomically add or subtract stock and record a transaction |
+| `GET` | `/api/v1/inventory/:id/transactions` | Bearer token | Return paginated ADD/SUBTRACT history |
 | `GET` | `/api/v1/products` | Public | List products |
 | `GET` | `/api/v1/products/:id` | Public | Get a product |
 | `POST` | `/api/v1/products` | Admin or super admin | Create a product |
@@ -83,6 +87,51 @@ Typical error response:
 | `DELETE` | `/api/v1/categories/:id` | Admin or super admin | Delete a category |
 
 Product and brand mutations require authentication and an active admin or super-admin profile.
+
+## Analytics endpoints
+
+### Dashboard analytics
+
+```http
+GET /api/v1/analytics/dashboard?from=2026-08-01&to=2026-08-31&granularity=day
+Authorization: Bearer <admin-access-token>
+```
+
+This endpoint requires an active `admin` or `super_admin` profile. `from` and
+`to` are optional inclusive UTC calendar dates in `YYYY-MM-DD` format. The
+default range is the latest 30 calendar days, and the maximum range is 366
+days. `granularity` accepts `day`, `week`, or `month`; weeks start on Monday.
+
+The response contains:
+
+- Catalog totals for active, inactive, branded, and unbranded products.
+- Inventory quantities, reservations, low/out-of-stock counts, and retail
+  value in PHP. Retail value is current stock multiplied by catalog price; it
+  is not revenue, purchase cost, or realized profit.
+- ADD/SUBTRACT totals, net stock change, transaction count, and chart-ready
+  time-series buckets from the immutable inventory ledger.
+
+Sales, revenue, order trends, and best-seller metrics are intentionally absent
+until the order module and immutable order-item snapshots are implemented.
+
+### Dashboard transaction log
+
+```http
+GET /api/v1/analytics/transactions?from=2026-08-01&to=2026-08-31&operation=ADD&transactionType=STOCK_RECEIVED&page=1&limit=20
+Authorization: Bearer <admin-access-token>
+```
+
+This admin/super-admin endpoint returns all inventory ledger entries across all
+products through pagination. `from`, `to`, `operation`, and `transactionType`
+are optional. `operation` accepts `ADD` or `SUBTRACT`; `page` defaults to 1 and
+`limit` defaults to 20 with a maximum of 100. When both dates are supplied, the
+range cannot exceed 366 days. Omit the filters and advance through every page
+to browse the complete transaction history.
+
+Each row includes product identity, operation and transaction type, requested
+quantity/unit, package conversion, signed base-unit change, previous/new
+balances, reason, actor UUID, references, and creation time. The response has
+the standard `data` array plus `pagination` metadata.
 
 ## Category endpoints
 
@@ -259,7 +308,8 @@ Optional query parameters:
 
 Each inventory row includes related product fields (`id`, `name`, `sku`, `unit`,
 `price`, `image_url`, and `is_active`). The image remains owned by the product
-and is not duplicated in inventory.
+and is not duplicated in inventory. Stock is held in `base_unit`; optional
+`package_unit` and `units_per_package` fields describe receiving conversion.
 
 ### Inventory summary
 
@@ -302,6 +352,27 @@ Path parameters:
 |---|---|
 | `id` | Inventory UUID |
 
+### Configure inventory packaging
+
+```http
+PUT /api/v1/inventory/:id/packaging
+Authorization: Bearer <access-token>
+Content-Type: application/json
+```
+
+For a product priced at PHP 210 per piece and received as 15-piece bales:
+
+```json
+{
+  "base_unit": "PIECE",
+  "package_unit": "BALE",
+  "units_per_package": 15
+}
+```
+
+`base_unit` is used for product price, stock balance, valuation, and low-stock
+calculations. `package_unit` is an accepted adjustment input unit.
+
 ### Adjust inventory stock
 
 ```http
@@ -314,17 +385,32 @@ Request body:
 
 ```json
 {
-  "operation": "SUBTRACT",
-  "quantity": 3,
-  "transaction_type": "DAMAGED",
-  "reason": "Three packs were damaged"
+  "operation": "ADD",
+  "quantity": 1,
+  "unit": "BALE",
+  "transaction_type": "STOCK_RECEIVED",
+  "reason": "Received one 15-piece bale"
 }
 ```
 
 `quantity` must always be positive. `operation` determines its sign. The backend
 uses the authenticated user's UUID for `performed_by`, prevents available stock
 from becoming negative, and writes an immutable transaction in the same database
-operation. Inventory rows are created automatically when products are created.
+operation. With the configuration above, `1 BALE` produces a base-unit
+`quantity_change` of `15 PIECE`. If `unit` is omitted, the base unit is used.
+Inventory rows are created automatically when products are created.
+
+### Inventory transaction history
+
+```http
+GET /api/v1/inventory/:id/transactions?operation=ADD&page=1&limit=20
+Authorization: Bearer <access-token>
+```
+
+`operation` is optional and accepts `ADD` or `SUBTRACT`. `page` defaults to 1;
+`limit` defaults to 20 and cannot exceed 100. Each row includes the requested
+package quantity/unit, conversion factor, signed base-unit change, previous/new
+balances, reason, actor, timestamp, and related product.
 
 ## Product endpoints
 
@@ -477,8 +563,10 @@ Security: this endpoint requires an active admin or super-admin profile.
 
 ## Production readiness blockers
 
-- Protect product and brand mutations using authentication and role authorization.
-- Add migrations and RLS policies for products and brands.
 - Add pagination and strict query validation to collection endpoints.
-- Add role checks for employee, admin, and super-admin capabilities.
 - Add integration tests that verify Express authorization and Supabase RLS together.
+- Make SKU allocation collision-safe under concurrent product creation.
+- Verify pending migrations, product-image storage, dashboard analytics, and
+  role-protected requests against the target Supabase environment.
+- Add security headers, route-specific authentication throttling, secret
+  scanning, structured logging, and operational monitoring.

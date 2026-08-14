@@ -2,7 +2,7 @@
 
 ## 1. System overview
 
-Seasonal Harvest Backend is an ES-module Node.js API built with Express. Its mounted API manages authentication, inventory, products, brands, and categories. Supabase provides authentication, PostgreSQL storage, row-level security (RLS), and database migrations. Arcjet protects every `/api/v1` request with shield, bot-detection, and token-bucket rate-limit rules.
+Seasonal Harvest Backend is an ES-module Node.js API built with Express. Its mounted API manages authentication, inventory, products, brands, categories, dashboard analytics, and a read-only AI assistant. Supabase provides authentication, PostgreSQL storage, row-level security (RLS), and database migrations. Arcjet protects every `/api/v1` request with shield, bot-detection, and token-bucket rate-limit rules.
 
 ## 2. High-level architecture
 
@@ -13,7 +13,7 @@ Client application
       v
 Express app (`app.js`)
       |
-      +-- Request parsing, cookies, and CORS
+      +-- JSON/multipart request parsing and CORS
       +-- Arcjet security middleware
       |
       v
@@ -53,11 +53,11 @@ Errors passed to `next(error)` flow to the shared error middleware, which return
 
 ## 3. Request lifecycle
 
-1. `app.js` receives the request and parses JSON, URL-encoded data, and cookies.
+1. `app.js` receives the request and parses JSON bodies. The product-create route uses Multer for its optional multipart image.
 2. CORS permits the configured local frontend origins and credentialed requests.
 3. Arcjet evaluates shield, bot, and rate-limit rules.
 4. Express dispatches the request to a mounted route.
-5. Protected inventory mutations pass through JWT authorization, which adds `req.user`.
+5. Protected operations pass through Supabase bearer-token authorization, which adds `req.user` and `req.accessToken`; role-protected routes also load the active application profile.
 6. A controller maps HTTP input and calls a service use case.
 7. The service applies orchestration rules and delegates persistence to a model/repository.
 8. The model validates persistence input and uses the Supabase client to query PostgreSQL.
@@ -73,10 +73,13 @@ Currently mounted route groups:
 
 | Base path | Router | Purpose |
 |---|---|---|
-| `/api/v1/inventory` | `routes/inventory.routes.js` | Inventory CRUD, stock adjustment, and reports |
+| `/api/v1/inventory` | `routes/inventory.routes.js` | Balances, package configuration, atomic adjustments, transaction history, and reports |
 | `/api/v1/products` | `routes/product.routes.js` | Product catalog CRUD |
 | `/api/v1/brands` | `routes/brand.route.js` | Brand CRUD |
 | `/api/v1/categories` | `routes/category.routes.js` | Category CRUD |
+| `/api/v1/auth` | `routes/auth.routes.js` | Supabase authentication and recovery |
+| `/api/v1/assistant` | `routes/assistant.routes.js` | Admin-only read-only AI assistant |
+| `/api/v1/analytics` | `routes/analytics.routes.js` | Admin-only dashboard metrics and paginated global transaction logs |
 
 ### Routing layer
 
@@ -90,14 +93,20 @@ Controllers read `req.params`, `req.query`, and `req.body`; perform request-leve
 
 Despite the directory name, the active Supabase model files act as repositories or data-access modules rather than ORM entity definitions:
 
-- `inventory.model.js` queries `inventory`, implements soft deletion, adjusts stock, and calculates reports.
+- `inventory.model.js` queries balances and transactions, configures packaging, adjusts stock through an RPC, and calculates reports.
 - `product.model.js` queries `products`, validates product fields and PHP prices, and permanently deletes products through the admin-protected endpoint.
 - `brand.model.js` queries `brands` and permanently deletes brands through the authenticated Supabase client.
 - `category.model.js` queries `categories` and uses a user-scoped Supabase client for protected writes.
+- `analytics.model.js` loads role-authorized product, inventory, and ledger data within validated UTC date bounds.
 
 ### Service layer
 
-`services/sku.service.js` generates product SKUs from the brand and product names, followed by a three-digit sequence based on existing matching SKUs.
+Service modules apply use-case validation and orchestration. In particular,
+`analytics.service.js` validates custom date ranges, pagination, ledger filters,
+and daily/weekly/monthly granularity, then produces catalog KPIs, inventory
+KPIs, chart-ready stock movement buckets, and a complete paginated activity
+feed. `sku.service.js` generates product SKUs from brand and product
+names, followed by a three-digit sequence based on existing matching SKUs.
 
 ### Configuration and infrastructure
 
@@ -134,20 +143,25 @@ seasonal-harvest-backend/
 |   |-- product.routes.js          # Mounted product endpoints
 |   |-- brand.route.js             # Mounted brand endpoints
 |   |-- category.routes.js         # Mounted category endpoints
-|   `-- auth.routes.js             # Mounted Supabase Auth endpoints
+|   |-- auth.routes.js             # Mounted Supabase Auth endpoints
+|   |-- assistant.routes.js        # Admin-only AI assistant
+|   `-- analytics.routes.js        # Admin-only dashboard analytics
 |
 |-- controller/
 |   |-- inventory.controller.js    # Inventory HTTP handlers
 |   |-- product.controller.js      # Product HTTP handlers
 |   |-- brand.controller.js        # Brand HTTP handlers
 |   |-- category.controller.js     # Category HTTP handlers
-|   `-- auth.controller.js         # Supabase authentication handlers
+|   |-- auth.controller.js         # Supabase authentication handlers
+|   |-- assistant.controller.js    # AI request validation and responses
+|   `-- analytics.controller.js    # Dashboard analytics HTTP handler
 |
 |-- model/
 |   |-- inventory.model.js         # Supabase inventory data access
 |   |-- product.model.js           # Supabase product data access
 |   |-- brand.model.js             # Supabase brand data access
-|   `-- category.model.js          # Supabase category data access
+|   |-- category.model.js          # Supabase category data access
+|   `-- analytics.model.js         # Role-authorized dashboard source queries
 |
 |-- middleware/
 |   |-- arcjet.middleware.js       # Global Arcjet request enforcement
@@ -160,6 +174,9 @@ seasonal-harvest-backend/
 |   |-- category.service.js        # Category use cases
 |   |-- brand.service.js           # Brand use cases
 |   |-- product.service.js         # Product use cases
+|   |-- inventory.service.js       # Inventory use cases and validation
+|   |-- assistant.service.js       # OpenAI tool-call loop
+|   |-- analytics.service.js       # Dashboard filters and aggregation
 |   `-- sku.service.js             # Product SKU generation
 |
 |-- supabase/
@@ -172,7 +189,14 @@ seasonal-harvest-backend/
 |       |-- 20260728000002_create_brands_table.sql
 |       |-- 20260728000003_create_products_table.sql
 |       |-- 20260728000004_fix_profile_signup_trigger.sql
-|       `-- 20260728000005_fix_profiles_rls_recursion.sql
+|       |-- 20260728000005_fix_profiles_rls_recursion.sql
+|       |-- 20260729000001_create_product_image_storage_policies.sql
+|       |-- 20260804000001_delete_brand_with_products.sql
+|       |-- 20260805000001_create_inventory_adjustments.sql
+|       |-- 20260805000002_initialize_product_inventory.sql
+|       |-- 20260805000003_set_default_low_stock_threshold.sql
+|       |-- 20260805000004_preserve_inventory_packaging_units.sql
+|       `-- 20260805000005_add_inventory_package_conversion.sql
 |
 |-- docs/
 |   |-- INVENTORY_SETUP.md         # Inventory schema and setup guide
@@ -185,6 +209,8 @@ seasonal-harvest-backend/
 |   |-- BUGS.md                    # Defects, incidents, and technical risks
 |   |-- PROGRESS.md                # Feature completion and security roadmap
 |   |-- TESTING.md                 # Unit testing, coverage, and security guidance
+|   |-- AI_TOOLS_AND_DEPENDENCIES.md # AI integration and roadmap
+|   |-- MOBILE_APP_API_INTEGRATION.md # Mobile endpoint and dashboard integration
 |   `-- SYSTEM_ARCHITECTURE.md     # This document
 |
 |-- utils/
@@ -199,7 +225,12 @@ seasonal-harvest-backend/
 
 ### Inventory
 
-The committed migrations define the `inventory` table with UUID identifiers, wet/dry categories, price and stock constraints, soft deletion through `deleted_at`, ownership through `created_by`, automatic timestamps, RLS policies, and audit logging.
+The normalized `inventory` table stores one balance per product in its priced
+`base_unit`. Optional `package_unit` and `units_per_package` fields support inputs
+such as `1 BALE = 15 PIECE`. The immutable `inventory_transactions` ledger keeps
+the requested unit/quantity, conversion factor, signed base-unit change,
+before/after balances, reason, actor, and timestamp. Atomic RPC adjustment,
+low-stock thresholds, timestamps, indexes, constraints, and RLS are committed.
 
 ### Products and brands
 
@@ -224,6 +255,11 @@ Collection endpoints may also include `count`; mutations may include `message`. 
 
 Inventory writes require `Authorization: Bearer <token>`. Category, product, and brand writes additionally require an active admin or super-admin profile, and their database RLS policies enforce the same authorization.
 
+Dashboard analytics require an active admin or super-admin profile. The
+analytics repository uses the caller-scoped Supabase client so PostgreSQL RLS
+remains part of authorization. Inventory retail value is a current-price stock
+estimate and is not sales revenue, purchase cost, or profit.
+
 ## 8. Important implementation notes
 
 - Environment files contain secrets and must remain excluded from source control and documentation. Document variable names only, never their values.
@@ -239,6 +275,9 @@ The active application requires at least:
 | `SUPABASE_ANON_KEY` | Supabase anonymous client key |
 | `ARCJET_KEY` | Arcjet SDK key |
 | `CORS_ORIGINS` | Comma-separated trusted browser origins |
+| `FRONTEND_URL` | Password-recovery frontend destination |
+| `OPENAI_API_KEY` | Server-only key required for AI assistant requests |
+| `OPENAI_MODEL` | Optional AI model override |
 
 ## 10. Development commands
 
@@ -261,4 +300,9 @@ supabase db push
 
 ## 11. Recommended direction
 
-Continue using Supabase as the single identity and persistence architecture. The next priorities are making stock and SKU changes concurrency-safe and adding integration tests that verify Express authorization and Supabase RLS together.
+Continue using Supabase as the single identity and persistence architecture.
+The next backend priorities are collision-safe SKU generation, integration
+tests that verify Express authorization and Supabase RLS together, and
+extending dashboard analytics with replenishment and category/brand metrics.
+Sales, revenue, and best-seller analytics should follow the order schema and
+immutable order-item snapshots rather than being inferred from stock movement.

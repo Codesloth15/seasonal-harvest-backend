@@ -16,21 +16,21 @@ This file is the single tracker for defects, production errors, and confirmed te
 
 ## Active bugs
 
-Current audit: 9 active entries — 3 fixes ready for deployment verification,
-1 blocked by a pending migration, and 5 still open.
+Current audit: 8 active entries — 3 fixes ready for deployment verification,
+1 blocked by a pending migration, and 4 still open. `BUG-008` is resolved.
 
 | State | Bugs | What is needed |
 |---|---|---|
 | Repository fix ready | `BUG-002`, `BUG-014`, `BUG-015` | Apply the relevant Supabase migrations or code deployment and verify the original requests in the deployed environment; `BUG-014` also requires the frontend multipart change |
 | Blocked | `BUG-003` | Verify product deletion after `BUG-002` is deployed |
-| Code fix needed | `BUG-008`, `BUG-009`, `BUG-010`, `BUG-012` | Implement atomic stock changes, collision-safe SKU generation, route-specific auth throttling, and real Supabase integration tests |
+| Code fix needed | `BUG-009`, `BUG-010`, `BUG-012` | Implement collision-safe SKU generation, route-specific auth throttling, and real Supabase integration tests |
 | Configuration fix needed | `BUG-011` | Configure `FRONTEND_URL` and the matching Supabase recovery redirect allowlist |
 
 | ID | Severity | Area | Problem | Status | Required action |
 |---|---|---|---|---|---|
 | `BUG-002` | Critical | Supabase RLS | PostgreSQL `42P17`: infinite recursion in policies for `profiles` | `FIX READY` | Apply migration `20260728000005_fix_profiles_rls_recursion.sql` to the active Supabase project, verify policies, sign in again, and retry the protected request |
 | `BUG-003` | High | Products | Product deletion returns HTTP 500 because its role check reads `profiles` and reaches `BUG-002` | `BLOCKED` | Resolve `BUG-002`, then verify `DELETE /api/v1/products/:id` returns success and removes the product row |
-| `BUG-008` | High | Inventory | Stock adjustment uses a read-then-write operation and can lose updates under concurrent requests | `OPEN` | Replace it with one PostgreSQL transaction or RPC that checks and updates stock atomically |
+| `BUG-008` | High | Inventory | Stock adjustment previously used a concurrency-unsafe read-then-write operation | `RESOLVED` | `adjust_inventory_stock` locks the balance, converts package units, validates available stock, updates quantity, and writes the ledger atomically |
 | `BUG-009` | Medium | Products | SKU generation can calculate the same sequence during concurrent product creation | `OPEN` | Generate the sequence atomically or retry safely when the unique constraint rejects a collision |
 | `BUG-010` | Medium | Authentication | Authentication routes only use the global Arcjet limit and do not have stricter per-route throttling | `OPEN` | Add dedicated limits for sign-in, sign-up, forgot-password, and reset-password without weakening the global policy |
 | `BUG-011` | Medium | Password recovery | Password-reset delivery can fail or redirect incorrectly when `FRONTEND_URL` and Supabase redirect URLs are not configured consistently | `OPEN` | Configure the production frontend URL and allow `<FRONTEND_URL>/reset-password` in Supabase Auth |

@@ -9,6 +9,8 @@ vi.mock("../../model/inventory.model.js", () => ({
   deleteInventory: vi.fn(),
   getInventorySummary: vi.fn(),
   getLowStockItems: vi.fn(),
+  getInventoryTransactions: vi.fn(),
+  updateInventoryPackaging: vi.fn(),
 }));
 
 import * as InventoryRepository from "../../model/inventory.model.js";
@@ -69,11 +71,11 @@ describe("inventory service", () => {
     InventoryRepository.adjustStock.mockResolvedValue({ previous_quantity: 5, quantity_change: -1, new_quantity: 4 });
     await InventoryService.adjustInventoryStock("1", {
       operation: "subtract", quantity: 1, transaction_type: "damaged",
-      reason: " Damaged pack ", performed_by: " user-1 ",
+      unit: "piece", reason: " Damaged piece ", performed_by: " user-1 ",
     }, "token");
     expect(InventoryRepository.adjustStock).toHaveBeenCalledWith("1", {
       operation: "SUBTRACT", quantity: 1, transaction_type: "DAMAGED",
-      reason: "Damaged pack", performed_by: "user-1",
+      unit: "PIECE", reason: "Damaged piece", performed_by: "user-1",
     }, "token");
   });
 
@@ -90,5 +92,42 @@ describe("inventory service", () => {
       operation: "SUBTRACT", quantity: 10, transaction_type: "MISSING",
       reason: "Missing", performed_by: "user-1",
     }, "token")).rejects.toMatchObject({ statusCode: 400, message: "Insufficient stock for this adjustment." });
+  });
+
+  it("normalizes transaction filters and pagination", async () => {
+    InventoryRepository.getInventoryTransactions.mockResolvedValue({ items: [], pagination: {} });
+    await InventoryService.getInventoryTransactions(
+      "inventory-1",
+      { operation: " add ", page: "2", limit: "10" },
+      "token",
+    );
+    expect(InventoryRepository.getInventoryTransactions).toHaveBeenCalledWith(
+      "inventory-1",
+      { operation: "ADD", page: 2, limit: 10 },
+      "token",
+    );
+  });
+
+  it("rejects invalid transaction-history filters", async () => {
+    expect(() => InventoryService.getInventoryTransactions("1", { operation: "MOVE" }, "token"))
+      .toThrow("Operation must be ADD or SUBTRACT.");
+    expect(() => InventoryService.getInventoryTransactions("1", { limit: "101" }, "token"))
+      .toThrow("Limit must be an integer between 1 and 100.");
+  });
+
+  it("configures package conversion into the priced base unit", async () => {
+    InventoryRepository.updateInventoryPackaging.mockResolvedValue({ id: "1" });
+    await InventoryService.configureInventoryPackaging("1", {
+      base_unit: "piece", package_unit: "bale", units_per_package: 15,
+    }, "token");
+    expect(InventoryRepository.updateInventoryPackaging).toHaveBeenCalledWith("1", {
+      base_unit: "PIECE", package_unit: "BALE", units_per_package: 15,
+    }, "token");
+  });
+
+  it("rejects invalid package conversion", async () => {
+    await expect(InventoryService.configureInventoryPackaging("1", {
+      base_unit: "PIECE", package_unit: "PIECE", units_per_package: 15,
+    }, "token")).rejects.toThrow("Package unit must differ");
   });
 });

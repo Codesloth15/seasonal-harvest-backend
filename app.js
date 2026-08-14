@@ -8,6 +8,7 @@ import brandRouter from "./routes/brand.route.js";
 import authRouter from "./routes/auth.routes.js";
 import categoryRouter from "./routes/category.routes.js";
 import assistantRouter from "./routes/assistant.routes.js";
+import analyticsRouter from "./routes/analytics.routes.js";
 
 import errorMiddleware from "./middleware/error.middleware.js";
 import arcjetMiddleware from "./middleware/arcjet.middleware.js";
@@ -26,6 +27,7 @@ app.use("/api/v1/brands", brandRouter);
 app.use("/api/v1/auth", authRouter);
 app.use("/api/v1/categories", categoryRouter);
 app.use("/api/v1/assistant", assistantRouter);
+app.use("/api/v1/analytics", analyticsRouter);
 
 app.get("/", (req, res) => {
   res.status(200).json({ success: true, service: "seasonal-harvest-backend" });
