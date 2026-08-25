@@ -484,12 +484,22 @@ Example item:
     "unit": "BOX",
     "price": 185,
     "image_url": null,
-    "is_active": true
+    "is_active": true,
+    "product_type": "BRANDED",
+    "brand_id": "brand-uuid",
+    "brand": {
+      "id": "brand-uuid",
+      "name": "CDO",
+      "logo_url": null,
+      "is_active": true
+    }
   }
 }
 ```
 
-Use `product.image_url` for the displayed product image and provide a placeholder when it is `null`.
+Use `product.image_url` for the displayed product image and `product.brand.name`
+for the brand label. Provide an image placeholder when `image_url` is `null`.
+Unbranded products return `product.brand_id: null` and `product.brand: null`.
 
 ### Inventory reports
 

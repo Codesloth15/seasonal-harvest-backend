@@ -3,8 +3,8 @@
 ## Overview
 
 Inventory stores one current stock balance per catalog product. Product names,
-SKUs, units, prices, and images remain in `products`; inventory responses include
-them through the `product` relationship.
+SKUs, units, prices, images, product types, and brand relationships remain in
+`products`; inventory responses include them through the `product` relationship.
 
 Creating a catalog product automatically creates its inventory row with:
 
@@ -36,7 +36,7 @@ require the Supabase access token in `Authorization: Bearer <ACCESS_TOKEN>`.
 - Atomic ADD and SUBTRACT adjustments
 - Prevention of stock subtraction beyond available quantity
 - Immutable transaction ledger for every adjustment
-- Related product name, SKU, unit, price, status, and image in read responses
+- Related product name, SKU, unit, price, status, image, product type, and nested brand details in read responses
 
 ## Inventory fields
 
@@ -178,15 +178,24 @@ curl --request GET \
         "unit": "BOX",
         "price": 185,
         "image_url": null,
-        "is_active": true
+        "is_active": true,
+        "product_type": "BRANDED",
+        "brand_id": "brand-uuid",
+        "brand": {
+          "id": "brand-uuid",
+          "name": "CDO",
+          "logo_url": null,
+          "is_active": true
+        }
       }
     }
   ]
 }
 ```
 
-Use `product.image_url` for the image and display a frontend placeholder when it
-is `null`.
+Use `product.image_url` for the image and `product.brand.name` for the displayed
+brand name. Display a frontend placeholder when the image is `null`. For an
+unbranded product, both `product.brand_id` and `product.brand` are `null`.
 
 ## Get one inventory item
 

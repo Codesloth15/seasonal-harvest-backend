@@ -1,8 +1,8 @@
 # Backend Feature Progress
 
-Last reviewed: August 14, 2026
+Last reviewed: August 25, 2026
 
-Repository audit: August 14, 2026. The current routes, services, migrations,
+Repository audit: August 25, 2026. The current routes, services, migrations,
 tests, and CI workflow were compared with every `PARTIAL` and `NONE` entry.
 The completed atomic inventory adjustment, stock ledger, transaction
 pagination, AI assistant foundation, dashboard analytics endpoint, and global
@@ -28,7 +28,7 @@ Supabase database and backend on port `5500`.
 
 | Priority | Required frontend/backend verification | Status |
 |---|---|---|
-| `P0` | Fetch and render `GET /api/v1/inventory` using the current bearer token | `PARTIAL` — endpoint is implemented; live frontend verification is required |
+| `P0` | Fetch and render `GET /api/v1/inventory` using the current bearer token, including `product.brand.name` for branded products | `PARTIAL` — endpoint and nested brand response are implemented; live frontend verification is required |
 | `P0` | Display `available_quantity` in `base_unit`, plus `package_unit` and `units_per_package` when configured | `PARTIAL` — API fields are implemented; UI verification is required |
 | `P0` | Configure `1 BALE = 15 PIECE` through `PUT /api/v1/inventory/:id/packaging` | `PARTIAL` — code and migration are ready; verify the manually applied remote schema |
 | `P0` | Add one bale and confirm the balance increases by 15 pieces through `POST /api/v1/inventory/:id/adjust` | `PARTIAL` — requires live end-to-end verification |
@@ -109,8 +109,8 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 
 | Feature | Status | Evidence or required work |
 |---|---|---|
-| List inventory | `DONE` | `GET /api/v1/inventory` |
-| Get inventory item | `DONE` | `GET /api/v1/inventory/:id` |
+| List inventory | `DONE` | `GET /api/v1/inventory` includes product type, brand ID, and nested brand details; unbranded products return `product.brand: null` |
+| Get inventory item | `DONE` | `GET /api/v1/inventory/:id` includes the same nested product and brand response shape |
 | Automatic inventory creation | `DONE` | Product insert trigger creates one zero-stock balance per product |
 | Configure package conversion | `DONE` | `PUT /api/v1/inventory/:id/packaging` separates priced base units from receiving packages |
 | Adjust stock | `DONE` | Authenticated POST converts package quantities and prevents negative available stock |
@@ -130,9 +130,9 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | Feature | Status | Evidence or required work |
 |---|---|---|
 | Create product handler | `DONE` | Product controller and model support creation |
-| List products | `DONE` | Filtering, searching, and sorting are implemented |
-| Get product | `DONE` | Single-product lookup is implemented |
-| Update product | `DONE` | Allowed-field filtering and price validation are implemented |
+| List products | `DONE` | Filtering, searching, sorting, and nested brand details are implemented |
+| Get product | `DONE` | Single-product lookup includes nested brand details; unbranded products return `brand: null` |
+| Update product | `DONE` | Allowed-field filtering and price validation are implemented, and the response includes nested brand details |
 | Permanently delete product | `DONE` | Admin-protected delete removes the product row |
 | Product type validation | `DONE` | Supports `BRANDED` and `UNBRANDED` |
 | SKU generation | `DONE` | `sku.service.js` generates a brand/product sequence |
@@ -240,7 +240,7 @@ than relying on model training knowledge or unrestricted database access.
 |---|---|---|
 | ESLint configuration | `DONE` | ESLint is configured and authentication files pass linting |
 | Versioned Supabase migrations | `DONE` | Inventory, catalog, auth/role, RLS repair, and product-image Storage migrations are committed |
-| Automated unit tests and coverage | `DONE` | 155 Vitest tests across 27 files cover dashboard analytics aggregation, filters, paginated transaction logs, authenticated data access, AI tools and tool loops, AI request validation, AI rate limiting, safe AI audit metadata, provider quota error mapping, product-image upload, and error-response behavior, with enforced statement, branch, function, and line thresholds |
+| Automated unit tests and coverage | `DONE` | 157 Vitest tests across 28 files cover dashboard analytics aggregation, filters, paginated transaction logs, authenticated data access, product/inventory brand relationships, AI tools and tool loops, AI request validation, AI rate limiting, safe AI audit metadata, provider quota error mapping, product-image upload, and error-response behavior, with enforced statement, branch, function, and line thresholds |
 | API integration tests | `NONE` | Test authentication, authorization, CRUD, RLS, and errors |
 | End-to-end frontend/backend tests | `NONE` | Cover registration, login, recovery, and main business flows |
 | CI pipeline | `PARTIAL` | Pull requests to `main` run dependency installation, ESLint, and all Vitest tests; migration checks and secret scanning remain |

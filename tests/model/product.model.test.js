@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { userBuilder, createAuthenticatedSupabaseClient } = vi.hoisted(() => {
+const { publicBuilder, userBuilder, createAuthenticatedSupabaseClient } = vi.hoisted(() => {
+  const publicBuilder = {
+    select: vi.fn(),
+    order: vi.fn(),
+  };
+  publicBuilder.select.mockReturnValue(publicBuilder);
+
   const userBuilder = {
     delete: vi.fn(),
     eq: vi.fn(),
@@ -13,6 +19,7 @@ const { userBuilder, createAuthenticatedSupabaseClient } = vi.hoisted(() => {
   }
 
   return {
+    publicBuilder,
     userBuilder,
     createAuthenticatedSupabaseClient: vi.fn(() => ({
       from: vi.fn(() => userBuilder),
@@ -21,16 +28,32 @@ const { userBuilder, createAuthenticatedSupabaseClient } = vi.hoisted(() => {
 });
 
 vi.mock("../../config/supabase.js", () => ({
-  default: { from: vi.fn() },
+  default: { from: vi.fn(() => publicBuilder) },
   createAuthenticatedSupabaseClient,
 }));
 
 vi.mock("../../services/sku.service.js", () => ({ generateSku: vi.fn() }));
 
-import { deleteProduct } from "../../model/product.model.js";
+import { deleteProduct, getAllProducts } from "../../model/product.model.js";
 
 describe("product model", () => {
   beforeEach(() => vi.clearAllMocks());
+
+  it("includes brand details when listing products", async () => {
+    publicBuilder.select.mockReturnValue(publicBuilder);
+    publicBuilder.order.mockResolvedValue({
+      data: [{ id: "product-id", brand: { name: "CDO" } }],
+      error: null,
+    });
+
+    await expect(getAllProducts()).resolves.toMatchObject([
+      { brand: { name: "CDO" }, currency: "PHP" },
+    ]);
+
+    expect(publicBuilder.select).toHaveBeenCalledWith(
+      "*, brand:brands(id, name, logo_url, is_active)",
+    );
+  });
 
   it("permanently deletes a product using the authenticated client", async () => {
     const product = { id: "product-id", name: "Tomato" };
