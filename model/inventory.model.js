@@ -3,6 +3,19 @@ import supabase, { createAuthenticatedSupabaseClient } from '../config/supabase.
 // Table name
 export const INVENTORY_TABLE = 'inventory';
 
+export const INVENTORY_PRODUCT_SELECT = `
+  id,
+  name,
+  sku,
+  unit,
+  price,
+  image_url,
+  is_active,
+  product_type,
+  brand_id,
+  brand:brands(id, name, logo_url, is_active)
+`;
+
 // Create new inventory item
 export const createInventory = async (data, accessToken) => {
   const userClient = createAuthenticatedSupabaseClient(accessToken);
@@ -20,7 +33,7 @@ export const getAllInventory = async (filters = {}, accessToken) => {
   const client = accessToken ? createAuthenticatedSupabaseClient(accessToken) : supabase;
   let query = client
     .from(INVENTORY_TABLE)
-    .select('*, product:products(id, name, sku, unit, price, image_url, is_active)');
+    .select(`*, product:products(${INVENTORY_PRODUCT_SELECT})`);
   
   // Apply sorting
   const allowedSortFields = new Set([
@@ -41,7 +54,7 @@ export const getAllInventory = async (filters = {}, accessToken) => {
 export const getInventoryById = async (id) => {
   const { data, error } = await supabase
     .from(INVENTORY_TABLE)
-    .select('*, product:products(id, name, sku, unit, price, image_url, is_active)')
+    .select(`*, product:products(${INVENTORY_PRODUCT_SELECT})`)
     .eq('id', id)
     .maybeSingle();
   
@@ -87,7 +100,7 @@ export const updateInventoryPackaging = async (id, packaging, accessToken) => {
     .from(INVENTORY_TABLE)
     .update(packaging)
     .eq('id', id)
-    .select('*, product:products(id, name, sku, unit, price, image_url, is_active)')
+    .select(`*, product:products(${INVENTORY_PRODUCT_SELECT})`)
     .single();
 
   if (error) throw error;
@@ -140,7 +153,7 @@ export const getInventorySummary = async () => {
 export const getLowStockItems = async () => {
   const { data, error } = await supabase
     .from(INVENTORY_TABLE)
-    .select('*, product:products(id, name, sku, unit, price, image_url, is_active)');
+    .select(`*, product:products(${INVENTORY_PRODUCT_SELECT})`);
 
   if (error) throw error;
   
@@ -160,7 +173,7 @@ export const getInventoryTransactions = async (inventoryId, filters = {}, access
   let query = client
     .from('inventory_transactions')
     .select(
-      '*, product:products(id, name, sku, unit, image_url)',
+      `*, product:products(${INVENTORY_PRODUCT_SELECT})`,
       { count: 'exact' },
     )
     .eq('inventory_id', inventoryId)

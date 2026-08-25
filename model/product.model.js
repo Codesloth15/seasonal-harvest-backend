@@ -3,6 +3,7 @@ import { generateSku } from "../services/sku.service.js";
 
 export const PRODUCT_TABLE = "products";
 export const PRODUCT_CURRENCY = "PHP";
+export const PRODUCT_SELECT = "*, brand:brands(id, name, logo_url, is_active)";
 
 const PRODUCT_FIELDS = new Set([
   "category_id",
@@ -99,7 +100,7 @@ export const createProduct = async (product, accessToken) => {
       sku: sku,
       is_active: values.is_active ?? true,
     })
-    .select()
+    .select(PRODUCT_SELECT)
     .single();
 
   if (error) throw error;
@@ -113,7 +114,7 @@ export const createProduct = async (product, accessToken) => {
 export const getAllProducts = async (filters = {}) => {
   let query = supabase
     .from(PRODUCT_TABLE)
-    .select("*");
+    .select(PRODUCT_SELECT);
 
   if (filters.categoryId) {
     query = query.eq("category_id", filters.categoryId);
@@ -154,7 +155,7 @@ export const getAllProducts = async (filters = {}) => {
 export const getProductById = async (id) => {
   const { data, error } = await supabase
     .from(PRODUCT_TABLE)
-    .select("*")
+    .select(PRODUCT_SELECT)
     .eq("id", id)
     .maybeSingle();
 
@@ -180,7 +181,7 @@ export const updateProduct = async (id, updates, accessToken) => {
     .from(PRODUCT_TABLE)
     .update(values)
     .eq("id", id)
-    .select()
+    .select(PRODUCT_SELECT)
     .maybeSingle();
 
   if (error) throw error;
@@ -197,7 +198,7 @@ export const deleteProduct = async (id, accessToken) => {
     .from(PRODUCT_TABLE)
     .delete()
     .eq("id", id)
-    .select()
+    .select(PRODUCT_SELECT)
     .maybeSingle();
 
   if (error) throw error;

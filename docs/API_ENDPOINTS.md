@@ -307,9 +307,12 @@ Optional query parameters:
 | `order` | `asc` or `desc` | Sort direction; defaults to `desc` |
 
 Each inventory row includes related product fields (`id`, `name`, `sku`, `unit`,
-`price`, `image_url`, and `is_active`). The image remains owned by the product
-and is not duplicated in inventory. Stock is held in `base_unit`; optional
-`package_unit` and `units_per_package` fields describe receiving conversion.
+`price`, `image_url`, `is_active`, `product_type`, and `brand_id`). Branded
+products also contain `product.brand` with `id`, `name`, `logo_url`, and
+`is_active`; unbranded products return `product.brand` as `null`. The image
+remains owned by the product and is not duplicated in inventory. Stock is held
+in `base_unit`; optional `package_unit` and `units_per_package` fields describe
+receiving conversion.
 
 ### Inventory summary
 
@@ -462,6 +465,10 @@ Multipart fields:
 | `image` | File | Optional JPEG, PNG, WebP, or AVIF; maximum 5 MB |
 
 Required fields: `category_id`, `name`, `product_type`, and `price`. A `BRANDED` product also requires `brand_id`. The backend generates the SKU and reports prices in PHP.
+
+Product list, detail, create, and update responses include a nested `brand`
+object with `id`, `name`, `logo_url`, and `is_active`. Unbranded products return
+`brand` as `null`.
 
 Security: this endpoint requires an active admin or super-admin profile.
 
