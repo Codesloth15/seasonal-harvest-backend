@@ -1,5 +1,6 @@
 import * as InventoryRepository from "../model/inventory.model.js";
 import { badRequest, notFound } from "../utils/http-error.js";
+import { publishDataChange } from "./realtime-events.service.js";
 
 export const listInventory = (filters, accessToken) =>
   InventoryRepository.getAllInventory(filters, accessToken);
@@ -27,7 +28,10 @@ export const createInventoryItem = (input, userId, accessToken) => {
       created_by: userId,
     },
     accessToken,
-  );
+  ).then((inventory) => {
+    publishDataChange({ resource: "inventory", action: "created", id: inventory.id });
+    return inventory;
+  });
 };
 
 export const updateInventoryItem = async (id, input, accessToken) => {
@@ -39,7 +43,9 @@ export const updateInventoryItem = async (id, input, accessToken) => {
       .map((field) => [field, input[field]]),
   );
   if (Object.keys(updates).length === 0) throw badRequest("Provide a valid field to update.");
-  return InventoryRepository.updateInventory(id, updates, accessToken);
+  const inventory = await InventoryRepository.updateInventory(id, updates, accessToken);
+  publishDataChange({ resource: "inventory", action: "updated", id: inventory.id ?? id });
+  return inventory;
 };
 
 const ADJUSTMENT_OPERATIONS = new Set(["ADD", "SUBTRACT"]);
@@ -88,7 +94,7 @@ export const adjustInventoryStock = async (id, input, accessToken) => {
   if (unit && !INVENTORY_UNITS.has(unit)) throw badRequest("Adjustment unit is not supported.");
 
   try {
-    return await InventoryRepository.adjustStock(
+    const adjustment = await InventoryRepository.adjustStock(
       id,
       {
         operation,
@@ -100,6 +106,8 @@ export const adjustInventoryStock = async (id, input, accessToken) => {
       },
       accessToken,
     );
+    publishDataChange({ resource: "inventory", action: "adjusted", id });
+    return adjustment;
   } catch (error) {
     if (error?.message?.includes("Insufficient stock for this adjustment.")) {
       throw badRequest("Insufficient stock for this adjustment.");
@@ -120,15 +128,20 @@ export const configureInventoryPackaging = async (id, input, accessToken) => {
     throw badRequest("Units per package must be a number greater than 1.");
   }
 
-  return InventoryRepository.updateInventoryPackaging(id, {
+  const inventory = await InventoryRepository.updateInventoryPackaging(id, {
     base_unit: baseUnit,
     package_unit: packageUnit,
     units_per_package: unitsPerPackage,
   }, accessToken);
+  publishDataChange({ resource: "inventory", action: "packaging-updated", id });
+  return inventory;
 };
 
-export const deleteInventoryItem = (id, accessToken) =>
-  InventoryRepository.deleteInventory(id, accessToken);
+export const deleteInventoryItem = async (id, accessToken) => {
+  const inventory = await InventoryRepository.deleteInventory(id, accessToken);
+  publishDataChange({ resource: "inventory", action: "deleted", id: inventory.id ?? id });
+  return inventory;
+};
 
 export const getInventorySummary = () => InventoryRepository.getInventorySummary();
 export const getLowStockItems = () => InventoryRepository.getLowStockItems();

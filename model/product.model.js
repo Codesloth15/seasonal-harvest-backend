@@ -13,6 +13,8 @@ const PRODUCT_FIELDS = new Set([
   "product_type",
   "barcode",
   "unit",
+  "package_unit",
+  "units_per_package",
   "price",
   "image_url",
   "is_active",
@@ -38,6 +40,56 @@ const validatePrice = (values) => {
   values.price = price;
 };
 
+const INVENTORY_UNITS = new Set([
+  "BOX", "PACK", "BALE", "PIECE", "SACK", "CRATE", "TRAY", "BUNDLE",
+  "KILOGRAM", "GRAM", "LITER", "MILLILITER",
+]);
+
+const normalizeUnit = (value) =>
+  typeof value === "string" ? value.trim().toUpperCase() : value;
+
+const validatePackaging = (values, { creating = false } = {}) => {
+  const hasPackageUnit = values.package_unit !== undefined;
+  const hasUnitsPerPackage = values.units_per_package !== undefined;
+
+  if (values.unit !== undefined) {
+    values.unit = normalizeUnit(values.unit);
+    if (!INVENTORY_UNITS.has(values.unit)) {
+      const error = new Error("unit must be a supported inventory unit.");
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
+  if (!hasPackageUnit && !hasUnitsPerPackage) return;
+  if (!hasPackageUnit || !hasUnitsPerPackage) {
+    const error = new Error("package_unit and units_per_package must be provided together.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  values.package_unit = normalizeUnit(values.package_unit);
+  values.units_per_package = Number(values.units_per_package);
+  if (!INVENTORY_UNITS.has(values.package_unit)) {
+    const error = new Error("package_unit must be a supported inventory unit.");
+    error.statusCode = 400;
+    throw error;
+  }
+  if (!Number.isFinite(values.units_per_package) || values.units_per_package <= 1) {
+    const error = new Error("units_per_package must be a number greater than 1.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const baseUnit = values.unit ?? (creating ? "PIECE" : undefined);
+  if (baseUnit === values.package_unit) {
+    const error = new Error("package_unit must differ from unit.");
+    error.statusCode = 400;
+    throw error;
+  }
+  if (creating && values.unit === undefined) values.unit = baseUnit;
+};
+
 const withCurrency = (product) =>
   product ? { ...product, currency: PRODUCT_CURRENCY } : null;
 
@@ -47,6 +99,7 @@ const withCurrency = (product) =>
 export const createProduct = async (product, accessToken) => {
   const values = pickProductFields(product);
   validatePrice(values);
+  validatePackaging(values, { creating: true });
   if (!values.name || !values.category_id || !values.product_type || values.price === undefined) {
     const error = new Error("name, category_id, product_type, and price are required.");
     error.statusCode = 400;
@@ -175,6 +228,7 @@ export const updateProduct = async (id, updates, accessToken) => {
     throw error;
   }
   validatePrice(values);
+  validatePackaging(values);
 
   const userClient = createAuthenticatedSupabaseClient(accessToken);
   const { data, error } = await userClient

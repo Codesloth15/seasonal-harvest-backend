@@ -4,6 +4,7 @@ import {
   deleteProductImage,
   uploadProductImage,
 } from "./product-image.service.js";
+import { publishDataChange } from "./realtime-events.service.js";
 
 export const listProducts = (filters) => ProductRepository.getAllProducts(filters);
 
@@ -15,18 +16,23 @@ export const getProduct = async (id) => {
 
 export const createProduct = async (values, image, accessToken) => {
   const product = await ProductRepository.createProduct(values, accessToken);
-  if (!image) return product;
+  if (!image) {
+    publishDataChange({ resource: "product", action: "created", id: product.id });
+    return product;
+  }
 
   let objectPath;
   try {
     const uploaded = await uploadProductImage(product.id, image, accessToken);
     objectPath = uploaded.objectPath;
 
-    return await ProductRepository.updateProduct(
+    const updatedProduct = await ProductRepository.updateProduct(
       product.id,
       { image_url: uploaded.imageUrl },
       accessToken,
     );
+    publishDataChange({ resource: "product", action: "created", id: updatedProduct.id });
+    return updatedProduct;
   } catch (error) {
     if (objectPath) {
       try {
@@ -49,10 +55,12 @@ export const createProduct = async (values, image, accessToken) => {
 export const updateProduct = async (id, values, accessToken) => {
   const product = await ProductRepository.updateProduct(id, values, accessToken);
   if (!product) throw notFound("Product");
+  publishDataChange({ resource: "product", action: "updated", id: product.id });
   return product;
 };
 
 export const deleteProduct = async (id, accessToken) => {
   const product = await ProductRepository.deleteProduct(id, accessToken);
   if (!product) throw notFound("Product");
+  publishDataChange({ resource: "product", action: "deleted", id: product.id });
 };

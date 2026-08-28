@@ -417,6 +417,24 @@ balances, reason, actor, timestamp, and related product.
 
 ## Product endpoints
 
+## Real-time change stream
+
+```http
+GET /api/v1/events/stream
+Authorization: Bearer <access-token>
+Accept: text/event-stream
+```
+
+This authenticated Server-Sent Events stream emits `data-change` events after
+successful product and inventory mutations. Event data contains `resource`,
+`action`, `id`, and `timestamp`; clients should refetch the affected resource.
+Send the most recently received SSE ID as `Last-Event-ID` when reconnecting to
+replay recent events retained by the running server process.
+
+Because the browser's native `EventSource` API cannot attach an Authorization
+header, authenticated frontends should consume this endpoint with a streaming
+`fetch` client. The stream sends a heartbeat every 25 seconds.
+
 ### List products
 
 ```http
@@ -461,10 +479,12 @@ Multipart fields:
 | `barcode` | Text | Optional |
 | `unit` | Text | Optional |
 | `price` | Text/number | Required non-negative PHP amount |
+| `package_unit` | Text | Optional package unit such as `BALE` |
+| `units_per_package` | Text/number | Required with `package_unit`; must be greater than 1 |
 | `is_active` | Text/boolean | Optional; defaults to active |
 | `image` | File | Optional JPEG, PNG, WebP, or AVIF; maximum 5 MB |
 
-Required fields: `category_id`, `name`, `product_type`, and `price`. A `BRANDED` product also requires `brand_id`. The backend generates the SKU and reports prices in PHP.
+Required fields: `category_id`, `name`, `product_type`, and `price`. A `BRANDED` product also requires `brand_id`. The backend generates the SKU and reports prices in PHP. `price` is the price of one `unit`. For a 15-piece bale priced at PHP 12.50 per piece, send `unit: "PIECE"`, `price: 12.50`, `package_unit: "BALE"`, and `units_per_package: 15`. Packaging is returned on product responses and synchronized with inventory.
 
 Product list, detail, create, and update responses include a nested `brand`
 object with `id`, `name`, `logo_url`, and `is_active`. Unbranded products return
