@@ -50,7 +50,7 @@ describe("error middleware product image errors", () => {
     });
   });
 
-  it("maps exhausted OpenAI quota to a stable service-unavailable response", () => {
+  it("maps exhausted AI-provider quota to a stable service-unavailable response", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const response = createResponse();
 

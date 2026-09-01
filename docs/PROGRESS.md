@@ -1,8 +1,8 @@
 # Backend Feature Progress
 
-Last reviewed: August 25, 2026
+Last reviewed: September 1, 2026
 
-Repository audit: August 25, 2026. The current routes, services, migrations,
+Repository audit: September 1, 2026. The current routes, services, migrations,
 tests, and CI workflow were compared with every `PARTIAL` and `NONE` entry.
 The completed atomic inventory adjustment, stock ledger, transaction
 pagination, AI assistant foundation, dashboard analytics endpoint, and global
@@ -20,21 +20,20 @@ A source file by itself does not qualify as `DONE`. The feature must be mounted,
 
 Confirmed defects and technical risks are tracked separately in `BUGS.md`.
 
-## Current top priority: inventory frontend integration
+## Completed release priority: inventory frontend integration
 
-Inventory is the immediate release priority. Do not start lower-priority feature
-work until the frontend can complete and verify this flow against the active
-Supabase database and backend on port `5500`.
+The inventory frontend release flow was verified against the active Supabase
+database and backend on port `5500` on September 1, 2026.
 
 | Priority | Required frontend/backend verification | Status |
 |---|---|---|
-| `P0` | Fetch and render `GET /api/v1/inventory` using the current bearer token, including `product.brand.name` for branded products | `PARTIAL` — endpoint and nested brand response are implemented; live frontend verification is required |
-| `P0` | Display `available_quantity` in `base_unit`, plus `package_unit` and `units_per_package` when configured | `PARTIAL` — API fields are implemented; UI verification is required |
-| `P0` | Configure `1 BALE = 15 PIECE` through `PUT /api/v1/inventory/:id/packaging` | `PARTIAL` — code and migration are ready; verify the manually applied remote schema |
-| `P0` | Add one bale and confirm the balance increases by 15 pieces through `POST /api/v1/inventory/:id/adjust` | `PARTIAL` — requires live end-to-end verification |
-| `P0` | Subtract pieces or packages without allowing available stock to become negative | `PARTIAL` — server validation exists; verify frontend error handling |
-| `P0` | Load adjustment history from `GET /api/v1/inventory/:id/transactions` and show requested and converted quantities | `PARTIAL` — endpoint is implemented; live frontend verification is required |
-| `P0` | Refresh inventory, summary, and low-stock views after every successful adjustment | `NONE` — frontend integration required |
+| `P0` | Fetch and render `GET /api/v1/inventory` using the current bearer token, including `product.brand.name` for branded products | `DONE` — verified in the frontend |
+| `P0` | Display `available_quantity` in `base_unit`, plus `package_unit` and `units_per_package` when configured | `DONE` — verified in the frontend |
+| `P0` | Configure `1 BALE = 15 PIECE` through `PUT /api/v1/inventory/:id/packaging` | `DONE` — remote schema and API flow verified |
+| `P0` | Add one bale and confirm the balance increases by 15 pieces through `POST /api/v1/inventory/:id/adjust` | `DONE` — end-to-end conversion verified |
+| `P0` | Subtract pieces or packages without allowing available stock to become negative | `DONE` — validation and frontend error handling verified |
+| `P0` | Load adjustment history from `GET /api/v1/inventory/:id/transactions` and show requested and converted quantities | `DONE` — verified in the frontend |
+| `P0` | Refresh inventory, summary, and low-stock views after every successful adjustment | `DONE` — verified in the frontend |
 | `P1` | Add pagination to the main inventory list | `NONE` |
 
 Acceptance example: a chicken product priced at PHP 210 per `PIECE`, configured
@@ -49,15 +48,15 @@ the requested bale and the converted piece quantity.
 | Application foundation | 11 | 0 | 1 |
 | Authentication and security | 13 | 0 | 9 |
 | Inventory | 13 | 0 | 2 |
-| Products | 9 | 1 | 2 |
+| Products | 10 | 0 | 2 |
 | Brands | 8 | 0 | 2 |
 | Categories | 8 | 0 | 2 |
 | Users and roles | 5 | 0 | 6 |
 | Orders and fulfillment | 0 | 0 | 10 |
 | Notifications and workflows | 0 | 0 | 6 |
-| AI and analytics | 3 | 1 | 7 |
+| AI and analytics | 4 | 2 | 5 |
 | Quality and operations | 4 | 1 | 10 |
-| **Total** | **74** | **3** | **57** |
+| **Total** | **76** | **3** | **55** |
 
 The counts are a planning snapshot and should be updated whenever a feature changes status.
 
@@ -140,7 +139,7 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | Product write authorization | `DONE` | Mutations use authenticated clients and admin role enforcement |
 | Collision-safe SKU generation | `NONE` | Add a unique constraint and atomic sequence/retry behavior |
 | Product pagination | `NONE` | Add validated limit/cursor behavior |
-| Product image upload | `PARTIAL` | The admin-protected create route accepts one `image` multipart field, validates JPEG/PNG/WebP/AVIF and a 5 MB limit, uploads to `product-images/{product-id}/{generated-filename}`, saves the public URL in `image_url`, rolls back failed creates, and returns actionable upload errors. Unit tests pass; apply the storage-policy migration, switch the frontend away from Base64 JSON, and verify against the target Supabase project before marking `DONE`. |
+| Product image upload | `DONE` | The admin-protected multipart `image` flow, MIME/size validation, Storage policies, public URL persistence, rollback behavior, frontend migration away from Base64 JSON, and target-project upload were verified. |
 
 ## Brands
 
@@ -227,12 +226,12 @@ than relying on model training knowledge or unrestricted database access.
 | Sales analytics | `NONE` | Aggregate completed order and immutable order-item data after the order module exists |
 | Revenue and order trends | `NONE` | Report revenue, order volume, and average order value by validated date range |
 | Best-selling products | `NONE` | Rank products by units sold and revenue while preserving historical order-item data |
-| Low-stock and restocking analytics | `NONE` | Identify urgent items and estimate replenishment needs from thresholds and movement history |
+| Low-stock and restocking analytics | `PARTIAL` | The AI analytics tool identifies low/high stock and recommends order quantities from average daily outbound movement, configurable supplier lead time, safety-stock days, and current availability. Recommendations currently treat every `SUBTRACT` movement as demand, so staff must review damaged, expired, missing, and manual adjustments. |
 | Category and brand performance | `NONE` | Compare product counts, inventory, units sold, and revenue by category and brand |
 | Dashboard analytics filters | `DONE` | Dashboard analytics validates inclusive UTC `from`/`to` dates, caps ranges at 366 days, defaults to 30 days, and supports daily, Monday-based weekly, and monthly buckets |
 | Analytics export | `NONE` | Provide role-authorized CSV or spreadsheet exports with safe size limits |
-| AI product and inventory assistant | `PARTIAL` | Admin-protected `POST /api/v1/assistant/chat`, OpenAI Responses API integration, read-only product/inventory/brand/category tools, dedicated per-user limits, metadata-only structured audit events, safe provider-quota error mapping, and unit tests are connected. The development key reaches OpenAI, but live answer and tool verification remain blocked by `insufficient_quota`; fund the OpenAI project, then repeat the live OpenAI and Supabase-backed tool checks. |
-| AI analytics assistant | `NONE` | Translate natural-language questions into approved analytics operations with role enforcement, rate limits, and audit logs |
+| AI product and inventory assistant | `DONE` | Admin-protected `POST /api/v1/assistant/chat` uses Gemini 3.6 function calling with read-only, authenticated product/inventory/brand/category tools, per-user limits, metadata-only audit events, and safe provider-error mapping. Live Gemini and Supabase-backed low-stock queries were verified; low-stock answers are formatted deterministically from package conversion data. |
+| AI analytics assistant | `PARTIAL` | The assistant can rank fast-, slow-, and non-moving products, report low/high stock, and calculate reorder suggestions from authenticated inventory movements using explicit lead-time and safety-stock inputs. Automated coverage passes; complete live verification of every movement and reorder question before marking `DONE`. |
 
 ## Quality and operations
 
@@ -240,7 +239,7 @@ than relying on model training knowledge or unrestricted database access.
 |---|---|---|
 | ESLint configuration | `DONE` | ESLint is configured and authentication files pass linting |
 | Versioned Supabase migrations | `DONE` | Inventory, catalog, auth/role, RLS repair, and product-image Storage migrations are committed |
-| Automated unit tests and coverage | `DONE` | 157 Vitest tests across 28 files cover dashboard analytics aggregation, filters, paginated transaction logs, authenticated data access, product/inventory brand relationships, AI tools and tool loops, AI request validation, AI rate limiting, safe AI audit metadata, provider quota error mapping, product-image upload, and error-response behavior, with enforced statement, branch, function, and line thresholds |
+| Automated unit tests and coverage | `DONE` | 168 Vitest tests across 30 files cover dashboard and movement analytics, reorder calculations, authenticated AI tools, deterministic package-based low-stock output, Gemini tool loops, AI validation and rate limiting, safe audit metadata and provider errors, product-image upload, and error-response behavior, with enforced statement, branch, function, and line thresholds |
 | API integration tests | `NONE` | Test authentication, authorization, CRUD, RLS, and errors |
 | End-to-end frontend/backend tests | `NONE` | Cover registration, login, recovery, and main business flows |
 | CI pipeline | `PARTIAL` | Pull requests to `main` run dependency installation, ESLint, and all Vitest tests; migration checks and secret scanning remain |
@@ -259,16 +258,14 @@ than relying on model training knowledge or unrestricted database access.
 Work should proceed in this order:
 
 1. Configure `FRONTEND_URL` and Supabase recovery redirects.
-2. Apply and verify the profile-RLS repair and product-image Storage migrations in the target Supabase project.
-3. Switch product creation in the frontend from Base64 JSON to the admin-authenticated multipart `image` flow.
-4. Make SKU generation collision-safe.
-5. Add authentication, authorization, Storage-policy, and RLS integration tests.
-6. Add security headers, stricter auth throttling, structured audit events, and secret scanning.
-7. Build users/roles administration.
-8. Build orders with transactional stock reservation and idempotent payment handling.
-9. Extend the dashboard foundation with category/brand performance, replenishment analytics, and order-backed sales metrics when order data exists.
-10. Complete live verification of the role-authorized AI product and inventory assistant, then extend it with approved analytics operations.
-11. Add notifications, observability, backup verification, and deployment automation.
+2. Make SKU generation collision-safe.
+3. Add authentication, authorization, Storage-policy, and RLS integration tests.
+4. Add security headers, stricter auth throttling, structured audit events, and secret scanning.
+5. Build users/roles administration.
+6. Build orders with transactional stock reservation and idempotent payment handling.
+7. Extend the dashboard foundation with category/brand performance, replenishment analytics, and order-backed sales metrics when order data exists.
+8. Complete live verification of the Gemini-backed, role-authorized inventory analytics assistant.
+9. Add notifications, observability, backup verification, and deployment automation.
 
 ## Rules for updating this file
 

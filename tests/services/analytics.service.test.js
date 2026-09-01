@@ -3,12 +3,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../../model/analytics.model.js", () => ({
   getDashboardSourceData: vi.fn(),
   getDashboardTransactionLog: vi.fn(),
+  getInventoryMovementSourceData: vi.fn(),
 }));
 
 import * as AnalyticsRepository from "../../model/analytics.model.js";
 import {
   getDashboardAnalytics,
   getDashboardTransactions,
+  getInventoryMovementAnalysis,
 } from "../../services/analytics.service.js";
 
 describe("analytics service", () => {
@@ -34,6 +36,7 @@ describe("analytics service", () => {
     AnalyticsRepository.getDashboardTransactionLog.mockResolvedValue({
       items: [], pagination: { page: 1, limit: 20, total: 0, totalPages: 0 },
     });
+    AnalyticsRepository.getInventoryMovementSourceData.mockResolvedValue({ inventory: [], transactions: [] });
   });
 
   it("returns catalog, inventory, and daily movement dashboard metrics", async () => {
@@ -119,5 +122,42 @@ describe("analytics service", () => {
   ])("rejects invalid transaction-log filters", async (filters, message) => {
     await expect(getDashboardTransactions(filters, "token")).rejects.toThrow(message);
     expect(AnalyticsRepository.getDashboardTransactionLog).not.toHaveBeenCalled();
+  });
+
+  it("ranks movement and calculates transparent reorder suggestions", async () => {
+    AnalyticsRepository.getInventoryMovementSourceData.mockResolvedValue({
+      inventory: [
+        { product_id: "fast", available_quantity: "2", low_stock_threshold: "5", base_unit: "PIECE", product: { name: "Fast", sku: "F-1", is_active: true } },
+        { product_id: "slow", available_quantity: "20", low_stock_threshold: "3", base_unit: "PIECE", product: { name: "Slow", sku: "S-1", is_active: true } },
+        { product_id: "still", available_quantity: "50", low_stock_threshold: "5", base_unit: "PIECE", product: { name: "Still", sku: "N-1", is_active: true } },
+      ],
+      transactions: [
+        { product_id: "fast", operation: "SUBTRACT", quantity_change: "-30" },
+        { product_id: "slow", operation: "SUBTRACT", quantity_change: "-3" },
+        { product_id: "fast", operation: "ADD", quantity_change: "100" },
+      ],
+    });
+
+    const result = await getInventoryMovementAnalysis(
+      { days: 30, leadTimeDays: 7, safetyStockDays: 3, limit: 10 },
+      "token",
+      new Date("2026-09-01T00:00:00.000Z"),
+    );
+
+    expect(AnalyticsRepository.getInventoryMovementSourceData).toHaveBeenCalledWith({
+      from: "2026-08-02T00:00:00.000Z", toExclusive: "2026-09-01T00:00:00.000Z",
+    }, "token");
+    expect(result.fastMoving.map((item) => item.productId)).toEqual(["fast", "slow"]);
+    expect(result.slowMoving.map((item) => item.productId)).toEqual(["slow", "fast"]);
+    expect(result.nonMoving[0].productId).toBe("still");
+    expect(result.lowStock[0].productId).toBe("fast");
+    expect(result.reorderSuggestions[0]).toMatchObject({
+      productId: "fast", averageDailyOutbound: 1, targetStock: 10, suggestedOrderQuantity: 8,
+    });
+  });
+
+  it("rejects invalid movement-analysis parameters", async () => {
+    await expect(getInventoryMovementAnalysis({ days: 0 }, "token")).rejects.toThrow("days");
+    expect(AnalyticsRepository.getInventoryMovementSourceData).not.toHaveBeenCalled();
   });
 });

@@ -12,6 +12,7 @@ export const chat = async (req, res, next) => {
     const result = await askAssistant(message, {
       userId: req.user.id,
       role: req.profile.role,
+      accessToken: req.accessToken,
     });
     res.status(200).json({ success: true, data: result });
   } catch (error) {

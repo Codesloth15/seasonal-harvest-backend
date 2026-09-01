@@ -1,19 +1,19 @@
 # AI Tools and Dependencies
 
-Last reviewed: August 14, 2026
+Last reviewed: September 1, 2026
 
 ## Purpose
 
 The Seasonal Harvest AI assistant answers authenticated questions about products,
-brands, categories, inventory totals, and low-stock items using live backend queries. It uses the OpenAI
-Responses API with read-only function tools. The model never connects directly to
+brands, categories, stock levels, product movement, and reorder recommendations using
+live backend queries. It uses Gemini with read-only function tools. The model never connects directly to
 Supabase and never receives database credentials.
 
 ## Installed project dependency
 
 | Package | Type | Purpose |
 |---|---|---|
-| `openai` | Runtime npm dependency | Official JavaScript SDK used by the backend to call the OpenAI Responses API and process function calls |
+| `@google/genai` | Runtime npm dependency | Official Google GenAI SDK used to call Gemini and process function calls |
 
 Existing dependencies reused by the AI endpoint:
 
@@ -22,20 +22,11 @@ Existing dependencies reused by the AI endpoint:
 | `express` | Hosts `POST /api/v1/assistant/chat` |
 | `@supabase/supabase-js` | Reads live product and inventory data through existing repositories |
 | `@arcjet/node` | Applies the existing global API protection and rate limiting |
-| `dotenv` | Loads the server-side OpenAI key and model name |
+| `dotenv` | Loads the server-side Gemini key and model name |
 
 No vector database, embeddings package, agent framework, or conversation database is
 installed yet. Live structured product and stock questions do not need them. Add those
 only if requirements expand to document search or persistent chat history.
-
-## Development tool installed
-
-| Tool | Scope | Purpose |
-|---|---|---|
-| `openaiDeveloperDocs` MCP server | Global Codex development environment | Provides current official OpenAI API documentation while developing the integration; it is not deployed with the backend |
-
-Restart Codex before expecting the newly installed documentation server to appear in a
-new development session.
 
 ## AI module structure
 
@@ -46,21 +37,21 @@ ai/
 `-- tools/
     `-- assistant-tools.js        # Read-only tool schemas and handlers
 config/
-`-- openai.js                     # Lazy, server-side OpenAI client
+`-- gemini.js                     # Lazy, server-side Gemini client
 controller/
 `-- assistant.controller.js       # HTTP validation and response handling
 routes/
 `-- assistant.routes.js           # Authenticated admin-only chat route
 services/
-`-- assistant.service.js          # Responses API and tool-call loop
+`-- assistant.service.js          # Gemini function-call loop
 ```
 
 ## Environment variables
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `OPENAI_API_KEY` | Yes for AI requests | Secret server-side API key. Never prefix it with `VITE_`, return it from an endpoint, or commit it. |
-| `OPENAI_MODEL` | No | Model override. Defaults to `gpt-5.6-sol` in the service. |
+| `GEMINI_API_KEY` | Yes for AI requests | Secret server-side API key. Never prefix it with `VITE_`, return it from an endpoint, or commit it. |
+| `GEMINI_MODEL` | No | Model override. Defaults to `gemini-3.6-flash` in the service. |
 | `AI_RATE_LIMIT_MAX` | No | Maximum AI requests per authenticated user in one window. Defaults to 10. |
 | `AI_RATE_LIMIT_WINDOW_MS` | No | AI rate-limit window in milliseconds. Defaults to 60,000. |
 
@@ -100,27 +91,35 @@ and safe error code. Prompts, answers, credentials, and access tokens are not lo
 | `search_categories` | Up to 50 categories, optionally filtered by name |
 | `get_inventory_summary` | Total value, item count, quantity, average price, and low-stock count |
 | `get_low_stock_items` | Up to 50 items at or below their low-stock threshold |
+| `analyze_inventory_movement` | Fast-, slow-, and non-moving rankings; low/high stock; and reorder suggestions with calculation inputs |
+
+Movement analysis defaults to the last 30 days, 7 lead-time days, and 3 safety-stock
+days. It treats `SUBTRACT` ledger movements as outbound demand. Recommendations use:
+
+```text
+max(0, ceil(average_daily_outbound * (lead_time_days + safety_stock_days)) - available_quantity)
+```
+
+Because damaged, expired, missing, and manual stock reductions can also be `SUBTRACT`
+movements, staff must review unusual adjustments before placing an order.
 
 ## Before live use
 
-1. Create an OpenAI project API key and store it only in backend secret settings.
-2. Confirm the configured model is enabled for the OpenAI project.
+1. Revoke any Gemini key exposed in chat or source control, create a replacement, and store it only in backend secret settings.
+2. Confirm the configured Gemini model is enabled for the Google AI project.
 3. Apply and verify the existing Supabase migrations and RLS policies.
-4. Add persistent usage budgets and live OpenAI/Supabase integration tests. Dedicated
+4. Add persistent usage budgets and live Gemini/Supabase integration tests. Dedicated
    per-user rate limiting, metadata-only audit events, and unit tests are implemented.
 5. Review what inventory fields are safe to expose to each application role.
 6. Test tool answers against a non-production Supabase project.
 
 ## Planned additions
 
-- Expose approved catalog totals and stock-movement trends to the assistant by
-  wrapping the role-protected dashboard analytics service in read-only AI tools
 - Sales and revenue tools after orders are implemented
 - Persistent conversations only after retention and deletion rules are approved
 - Streaming responses if the frontend needs progressive rendering
 
 Official references:
 
-- [OpenAI Responses API](https://developers.openai.com/api/docs/guides/text-generation)
-- [OpenAI function calling](https://developers.openai.com/api/docs/guides/function-calling)
-- [OpenAI API key safety](https://help.openai.com/en/articles/5112595-best-practices-for-api-key-safety)
+- [Google GenAI JavaScript SDK](https://ai.google.dev/gemini-api/docs/libraries)
+- [Gemini function calling](https://ai.google.dev/gemini-api/docs/function-calling)

@@ -12,7 +12,7 @@ const response = () => {
 };
 
 describe("assistant controller", () => {
-  it("passes authenticated actor context without passing the access token", async () => {
+  it("passes authenticated actor context for role-authorized tools", async () => {
     askAssistant.mockResolvedValue({ answer: "Two items.", responseId: "resp-1" });
     const res = response();
     const next = vi.fn();
@@ -31,6 +31,7 @@ describe("assistant controller", () => {
     expect(askAssistant).toHaveBeenCalledWith("How many products?", {
       userId: "admin-1",
       role: "admin",
+      accessToken: "secret-token",
     });
     expect(res.status).toHaveBeenCalledWith(200);
     expect(next).not.toHaveBeenCalled();

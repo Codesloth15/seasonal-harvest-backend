@@ -64,4 +64,14 @@ describe("catalog migrations", () => {
     expect(sql).toMatch(/GRANT SELECT ON public\.products TO anon, authenticated/i);
     expect(sql).not.toMatch(/GRANT (INSERT|UPDATE|DELETE).* TO anon/i);
   });
+
+  it("adds product packaging and synchronizes it with inventory", async () => {
+    const sql = await readMigration("20260826000001_add_product_packaging.sql");
+
+    expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS package_unit/i);
+    expect(sql).toMatch(/ADD COLUMN IF NOT EXISTS units_per_package/i);
+    expect(sql).toMatch(/products_package_conversion_valid/i);
+    expect(sql).toMatch(/sync_product_packaging_to_inventory/i);
+    expect(sql).toMatch(/sync_inventory_packaging_to_product/i);
+  });
 });

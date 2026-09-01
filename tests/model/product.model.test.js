@@ -8,13 +8,16 @@ const { publicBuilder, userBuilder, createAuthenticatedSupabaseClient } = vi.hoi
   publicBuilder.select.mockReturnValue(publicBuilder);
 
   const userBuilder = {
+    insert: vi.fn(),
+    update: vi.fn(),
     delete: vi.fn(),
     eq: vi.fn(),
     select: vi.fn(),
+    single: vi.fn(),
     maybeSingle: vi.fn(),
   };
 
-  for (const method of ["delete", "eq", "select"]) {
+  for (const method of ["insert", "update", "delete", "eq", "select"]) {
     userBuilder[method].mockReturnValue(userBuilder);
   }
 
@@ -32,9 +35,14 @@ vi.mock("../../config/supabase.js", () => ({
   createAuthenticatedSupabaseClient,
 }));
 
-vi.mock("../../services/sku.service.js", () => ({ generateSku: vi.fn() }));
+vi.mock("../../services/sku.service.js", () => ({ generateSku: vi.fn(() => "SKU-001") }));
 
-import { deleteProduct, getAllProducts } from "../../model/product.model.js";
+import {
+  createProduct,
+  deleteProduct,
+  getAllProducts,
+  updateProduct,
+} from "../../model/product.model.js";
 
 describe("product model", () => {
   beforeEach(() => vi.clearAllMocks());
@@ -64,5 +72,52 @@ describe("product model", () => {
     expect(createAuthenticatedSupabaseClient).toHaveBeenCalledWith("token");
     expect(userBuilder.delete).toHaveBeenCalledWith();
     expect(userBuilder.eq).toHaveBeenCalledWith("id", "product-id");
+  });
+
+  it("creates a product with a per-piece price and bale conversion", async () => {
+    const product = {
+      id: "product-id",
+      name: "Twine",
+      unit: "PIECE",
+      package_unit: "BALE",
+      units_per_package: 15,
+      price: 12.5,
+    };
+    userBuilder.single.mockResolvedValue({ data: product, error: null });
+
+    await expect(createProduct({
+      category_id: "category-id",
+      name: "Twine",
+      product_type: "UNBRANDED",
+      unit: "piece",
+      package_unit: "bale",
+      units_per_package: "15",
+      price: "12.50",
+    }, "token")).resolves.toMatchObject({ ...product, currency: "PHP" });
+
+    expect(userBuilder.insert).toHaveBeenCalledWith(expect.objectContaining({
+      unit: "PIECE",
+      package_unit: "BALE",
+      units_per_package: 15,
+      price: 12.5,
+    }));
+  });
+
+  it("rejects incomplete or invalid product packaging", async () => {
+    const base = {
+      category_id: "category-id",
+      name: "Twine",
+      product_type: "UNBRANDED",
+      price: 12.5,
+    };
+
+    await expect(createProduct({ ...base, package_unit: "BALE" }, "token"))
+      .rejects.toMatchObject({ statusCode: 400 });
+    await expect(createProduct({
+      ...base, unit: "PIECE", package_unit: "PIECE", units_per_package: 15,
+    }, "token")).rejects.toMatchObject({ statusCode: 400 });
+    await expect(updateProduct("product-id", {
+      package_unit: "BALE", units_per_package: 1,
+    }, "token")).rejects.toMatchObject({ statusCode: 400 });
   });
 });

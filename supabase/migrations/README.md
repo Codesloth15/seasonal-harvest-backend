@@ -96,6 +96,11 @@ Separates the priced base unit from an optional receiving package unit, records
 the conversion on adjustment transactions, and converts package adjustments to
 base-unit stock atomically.
 
+### `20260826000001_add_product_packaging.sql`
+
+Adds `package_unit` and `units_per_package` to catalog products, backfills existing
+inventory packaging, and keeps product and inventory packaging synchronized.
+
 ## Database Schema Reference
 
 ### Inventory Table (current normalized schema)

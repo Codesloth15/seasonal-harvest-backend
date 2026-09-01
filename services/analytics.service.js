@@ -189,3 +189,70 @@ export const getDashboardTransactions = async (input = {}, accessToken) => {
     toExclusive: toDate ? addUtcDays(toDate, 1).toISOString() : undefined,
   }, accessToken);
 };
+
+const positiveInteger = (value, fallback, field, maximum) => {
+  const parsed = value === undefined || value === null ? fallback : Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > maximum) {
+    throw badRequest(`${field} must be an integer between 1 and ${maximum}.`);
+  }
+  return parsed;
+};
+
+export const getInventoryMovementAnalysis = async (input = {}, accessToken, now = new Date()) => {
+  const days = positiveInteger(input.days, 30, "days", 366);
+  const leadTimeDays = positiveInteger(input.leadTimeDays, 7, "leadTimeDays", 90);
+  const safetyStockDays = positiveInteger(input.safetyStockDays, 3, "safetyStockDays", 90);
+  const limit = positiveInteger(input.limit, 10, "limit", 50);
+  const toExclusive = new Date(now);
+  const from = new Date(toExclusive);
+  from.setUTCDate(from.getUTCDate() - days);
+  const source = await AnalyticsRepository.getInventoryMovementSourceData(
+    { from: from.toISOString(), toExclusive: toExclusive.toISOString() }, accessToken,
+  );
+
+  const outboundByProduct = new Map();
+  for (const transaction of source.transactions) {
+    if (transaction.operation !== "SUBTRACT") continue;
+    const quantity = Math.abs(number(transaction.quantity_change));
+    outboundByProduct.set(transaction.product_id, (outboundByProduct.get(transaction.product_id) ?? 0) + quantity);
+  }
+
+  const products = source.inventory.filter((row) => row.product?.is_active !== false).map((row) => {
+    const availableQuantity = number(row.available_quantity);
+    const lowStockThreshold = number(row.low_stock_threshold);
+    const outboundQuantity = outboundByProduct.get(row.product_id) ?? 0;
+    const averageDailyOutbound = outboundQuantity / days;
+    const targetStock = Math.ceil(averageDailyOutbound * (leadTimeDays + safetyStockDays));
+    return {
+      productId: row.product_id,
+      name: row.product?.name,
+      sku: row.product?.sku,
+      baseUnit: row.base_unit || row.product?.unit,
+      packageUnit: row.package_unit,
+      unitsPerPackage: number(row.units_per_package) || null,
+      availableQuantity,
+      lowStockThreshold,
+      outboundQuantity,
+      averageDailyOutbound: Number(averageDailyOutbound.toFixed(2)),
+      targetStock,
+      suggestedOrderQuantity: Math.max(0, targetStock - availableQuantity),
+    };
+  });
+
+  const descendingMovement = (a, b) => b.outboundQuantity - a.outboundQuantity;
+  const ascendingMovement = (a, b) => a.outboundQuantity - b.outboundQuantity;
+  const descendingStock = (a, b) => b.availableQuantity - a.availableQuantity;
+  return {
+    basis: {
+      from: from.toISOString(), toExclusive: toExclusive.toISOString(), days, leadTimeDays, safetyStockDays,
+      formula: "max(0, ceil(avg_daily_outbound * (lead_time_days + safety_stock_days)) - available_quantity)",
+      caveat: "SUBTRACT movements are used as outbound demand; review manual, damaged, expired, or missing-stock adjustments before ordering.",
+    },
+    fastMoving: products.filter((item) => item.outboundQuantity > 0).sort(descendingMovement).slice(0, limit),
+    slowMoving: products.filter((item) => item.outboundQuantity > 0).sort(ascendingMovement).slice(0, limit),
+    nonMoving: products.filter((item) => item.outboundQuantity === 0).sort(descendingStock).slice(0, limit),
+    lowStock: products.filter((item) => item.availableQuantity <= item.lowStockThreshold).sort((a, b) => a.availableQuantity - b.availableQuantity).slice(0, limit),
+    highStock: [...products].sort(descendingStock).slice(0, limit),
+    reorderSuggestions: products.filter((item) => item.suggestedOrderQuantity > 0).sort((a, b) => b.suggestedOrderQuantity - a.suggestedOrderQuantity).slice(0, limit),
+  };
+};
