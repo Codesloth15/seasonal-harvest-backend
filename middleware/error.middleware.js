@@ -36,12 +36,34 @@ const AI_ERROR_MAP = {
   },
 };
 
+const mapAiProviderError = (error) => {
+  if (AI_ERROR_MAP[error.code]) return AI_ERROR_MAP[error.code];
+  if (!error.isAiProviderError) return undefined;
+  const status = Number(error.status || error.statusCode);
+  if (status === 404) {
+    return {
+      statusCode: 503,
+      message: "The configured AI model is unavailable. Please contact an administrator.",
+      responseCode: "AI_MODEL_UNAVAILABLE",
+    };
+  }
+  if (status === 429) return AI_ERROR_MAP.rate_limit_exceeded;
+  if (status === 403) {
+    return {
+      statusCode: 503,
+      message: "The AI assistant is not available with the configured provider credentials.",
+      responseCode: "AI_UNAVAILABLE",
+    };
+  }
+  return undefined;
+};
+
 const errorMiddleware = (err, req, res, next) => {
   if (res.headersSent) return next(err);
 
   const mapped = POSTGRES_ERROR_MAP[err.code];
   const uploadError = UPLOAD_ERROR_MAP[err.code];
-  const aiError = AI_ERROR_MAP[err.code];
+  const aiError = mapAiProviderError(err);
   const statusCode =
     aiError?.statusCode ||
     uploadError?.statusCode ||

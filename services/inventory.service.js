@@ -144,7 +144,7 @@ export const deleteInventoryItem = async (id, accessToken) => {
 };
 
 export const getInventorySummary = () => InventoryRepository.getInventorySummary();
-export const getLowStockItems = () => InventoryRepository.getLowStockItems();
+export const getLowStockItems = (accessToken) => InventoryRepository.getLowStockItems(accessToken);
 
 export const getInventoryTransactions = (id, input = {}, accessToken) => {
   const operation = typeof input.operation === "string"

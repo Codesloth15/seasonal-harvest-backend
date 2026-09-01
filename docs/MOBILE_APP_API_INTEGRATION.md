@@ -53,8 +53,8 @@ FRONTEND_URL=http://localhost:5173
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-supabase-anon-key
 ARCJET_KEY=your-arcjet-key
-OPENAI_API_KEY=your-openai-api-key
-OPENAI_MODEL=your-supported-openai-model
+GEMINI_API_KEY=your-gemini-api-key
+GEMINI_MODEL=gemini-3.6-flash
 
 AI_RATE_LIMIT_MAX=10
 AI_RATE_LIMIT_WINDOW_MS=60000
@@ -75,7 +75,7 @@ supabase db push
 
 Native requests generally do not include a browser `Origin` header. Expo Web and other browser clients must use an exact origin listed in `CORS_ORIGINS`.
 
-Do not expose `OPENAI_API_KEY`, `ARCJET_KEY`, a Supabase service-role key, or database credentials in a mobile bundle. The app normally needs only `EXPO_PUBLIC_API_URL`. It needs the public Supabase anon key only if it directly uses the Supabase client for token refresh or recovery links.
+Do not expose `GEMINI_API_KEY`, `ARCJET_KEY`, a Supabase service-role key, or database credentials in a mobile bundle. The app normally needs only `EXPO_PUBLIC_API_URL`. It needs the public Supabase anon key only if it directly uses the Supabase client for token refresh or recovery links.
 
 ## 3. Request and response conventions
 
@@ -642,7 +642,59 @@ Content-Type: application/json
 }
 ```
 
-The message is required and cannot exceed 2,000 characters. The default per-instance limit is 10 requests per authenticated user per 60 seconds. The assistant is read-only and cannot mutate catalog or inventory records.
+The message is required and cannot exceed 2,000 characters. The default per-instance limit is 10 requests per authenticated user per 60 seconds. The Gemini-backed assistant is read-only and cannot mutate catalog or inventory records. It can answer fast-, slow-, and non-moving product questions, low/high-stock questions, and provide reorder recommendations with their analysis window, lead-time, and safety-stock basis.
+
+The backend currently uses `gemini-3.6-flash`. All AI inventory tools execute with
+the caller's Supabase bearer token so RLS sees the authenticated Admin or Super Admin;
+the Gemini provider never receives database credentials or the bearer token.
+
+### Low-stock answer format
+
+For a low-stock question, the backend formats the final answer deterministically
+instead of allowing the model to rewrite the quantities. Each product uses its
+configured package conversion:
+
+```text
+display quantity = available base quantity / units per package
+```
+
+If no package conversion exists, the base unit is used. Fractional package quantities
+are rounded to two decimal places.
+
+Example response:
+
+```json
+{
+  "success": true,
+  "data": {
+    "answer": "Kikiam: 0 SACK\nChicken Longganisa: 0.05 BALE\nIdol Cheesedog 1kg: 3 PACK",
+    "responseId": "provider-response-id"
+  }
+}
+```
+
+The `\n` characters are JSON-escaped line breaks, not text that should be displayed
+literally. Render `data.answer` as ordinary text with preserved whitespace. For React
+Native:
+
+```jsx
+<Text>{response.data.answer}</Text>
+```
+
+Useful questions include:
+
+```text
+Show the low-stock products.
+What are the fastest-moving products in the last 30 days?
+Which products are slow-moving or not moving?
+Show the highest-stock products.
+Using a 7-day supplier lead time and 3 safety-stock days, what should we reorder?
+```
+
+Movement analysis defaults to 30 days, a 7-day supplier lead time, and 3 safety-stock
+days. Reorder quantities are recommendations only. The calculation uses average daily
+`SUBTRACT` movement and current availability; staff should review damaged, expired,
+missing, supplier-return, and manual adjustments before ordering.
 
 ## 10. Dashboard analytics
 

@@ -10,9 +10,12 @@ vi.mock("../../services/product.service.js", () => ({
 }));
 vi.mock("../../services/brand.service.js", () => ({ listBrands: vi.fn() }));
 vi.mock("../../services/category.service.js", () => ({ listCategories: vi.fn() }));
+vi.mock("../../services/analytics.service.js", () => ({ getInventoryMovementAnalysis: vi.fn() }));
 
 import * as BrandService from "../../services/brand.service.js";
 import * as CategoryService from "../../services/category.service.js";
+import * as InventoryService from "../../services/inventory.service.js";
+import * as AnalyticsService from "../../services/analytics.service.js";
 import { assistantTools, runAssistantTool } from "../../ai/tools/assistant-tools.js";
 
 describe("assistant tools", () => {
@@ -22,6 +25,7 @@ describe("assistant tools", () => {
     const names = assistantTools.map(({ name }) => name);
     expect(names).toContain("search_brands");
     expect(names).toContain("search_categories");
+    expect(names).toContain("analyze_inventory_movement");
   });
 
   it("searches and bounds brand results", async () => {
@@ -58,5 +62,34 @@ describe("assistant tools", () => {
   it("rejects unsupported tools and malformed tool arguments", async () => {
     await expect(runAssistantTool("delete_product", "{}")).rejects.toThrow("Unsupported AI tool");
     await expect(runAssistantTool("search_brands", "{" )).rejects.toThrow("Invalid arguments");
+  });
+
+  it("runs movement analysis with the authenticated access token", async () => {
+    AnalyticsService.getInventoryMovementAnalysis.mockResolvedValue({ fastMoving: [] });
+    await runAssistantTool(
+      "analyze_inventory_movement",
+      { days: 30, leadTimeDays: 7, safetyStockDays: 3, limit: 10 },
+      { accessToken: "token" },
+    );
+    expect(AnalyticsService.getInventoryMovementAnalysis).toHaveBeenCalledWith(
+      { days: 30, leadTimeDays: 7, safetyStockDays: 3, limit: 10 }, "token",
+    );
+  });
+
+  it("formats low-stock quantities using configured packaging", async () => {
+    InventoryService.getLowStockItems.mockResolvedValue([
+      { available_quantity: 0, low_stock_threshold: 5, base_unit: "PIECE", package_unit: "SACK", units_per_package: 20, product: { name: "Kikiam" } },
+      { available_quantity: 60, low_stock_threshold: 75, base_unit: "PIECE", package_unit: "BOX", units_per_package: 12, product: { name: "Hotdog" } },
+      { available_quantity: 3, low_stock_threshold: 5, base_unit: "KILO", package_unit: null, units_per_package: null, product: { name: "Chicken" } },
+    ]);
+
+    const result = await runAssistantTool("get_low_stock_items", {}, { accessToken: "admin-token" });
+
+    expect(InventoryService.getLowStockItems).toHaveBeenCalledWith("admin-token");
+    expect(result.items).toEqual([
+      expect.objectContaining({ name: "Kikiam", displayQuantity: 0, displayUnit: "SACK" }),
+      expect.objectContaining({ name: "Hotdog", displayQuantity: 5, displayUnit: "BOX" }),
+      expect.objectContaining({ name: "Chicken", displayQuantity: 3, displayUnit: "KILO" }),
+    ]);
   });
 });

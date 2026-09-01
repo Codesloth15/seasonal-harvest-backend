@@ -65,3 +65,23 @@ export const getDashboardTransactionLog = async (filters, accessToken) => {
     },
   };
 };
+
+export const getInventoryMovementSourceData = async ({ from, toExclusive }, accessToken) => {
+  const client = createAuthenticatedSupabaseClient(accessToken);
+  const [inventoryResult, transactionsResult] = await Promise.all([
+    client
+      .from("inventory")
+      .select(
+        "id, product_id, available_quantity, quantity_on_hand, reserved_quantity, low_stock_threshold, base_unit, package_unit, units_per_package, product:products(id, name, sku, unit, is_active)",
+      ),
+    client
+      .from("inventory_transactions")
+      .select("product_id, operation, transaction_type, quantity_change, created_at")
+      .gte("created_at", from)
+      .lt("created_at", toExclusive),
+  ]);
+
+  if (inventoryResult.error) throw inventoryResult.error;
+  if (transactionsResult.error) throw transactionsResult.error;
+  return { inventory: inventoryResult.data ?? [], transactions: transactionsResult.data ?? [] };
+};

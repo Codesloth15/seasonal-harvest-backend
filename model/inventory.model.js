@@ -150,8 +150,9 @@ export const getInventorySummary = async () => {
 };
 
 // Get low stock items
-export const getLowStockItems = async () => {
-  const { data, error } = await supabase
+export const getLowStockItems = async (accessToken) => {
+  const client = accessToken ? createAuthenticatedSupabaseClient(accessToken) : supabase;
+  const { data, error } = await client
     .from(INVENTORY_TABLE)
     .select(`*, product:products(${INVENTORY_PRODUCT_SELECT})`);
 
