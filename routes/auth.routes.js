@@ -3,6 +3,7 @@ import {
   forgotPassword,
   getCurrentUser,
   resetPassword,
+  refreshSession,
   signIn,
   signOut,
   signUp,
@@ -13,6 +14,7 @@ const authRouter = Router();
 
 authRouter.post("/sign-up", signUp);
 authRouter.post("/sign-in", signIn);
+authRouter.post("/refresh", refreshSession);
 authRouter.post("/forgot-password", forgotPassword);
 authRouter.post("/reset-password", authorize, resetPassword);
 authRouter.post("/sign-out", authorize, signOut);

@@ -99,7 +99,7 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | Route-specific login throttling | `NONE` | Add stricter limits for sign-in, sign-up, and recovery endpoints |
 | Strong password policy | `NONE` | Add breached/common-password checks and an agreed policy |
 | Multi-factor authentication | `NONE` | Add enrollment, verification, recovery, and enforcement rules |
-| Refresh-session API contract | `NONE` | Define frontend Supabase refresh behavior or a backend endpoint |
+| Refresh-session API contract | `DONE` | `POST /api/v1/auth/refresh` rotates sessions for persistent mobile authentication |
 | Authentication audit events | `NONE` | Record login success/failure, recovery, password change, and logout |
 | Security headers | `NONE` | Add and configure Helmet or equivalent response headers |
 | CSRF protection for cookie auth | `NONE` | Required if browser authentication moves to cookies |

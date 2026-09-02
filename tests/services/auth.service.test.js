@@ -16,6 +16,7 @@ import {
   changePassword,
   login,
   logout,
+  refreshSession,
   register,
   sendPasswordReset,
 } from "../../services/auth.service.js";
@@ -54,6 +55,25 @@ describe("authentication service", () => {
     signInWithPassword.mockResolvedValue({ data, error: null });
 
     await expect(login({ email: "person@example.com", password: "password123" })).resolves.toEqual(data);
+  });
+
+  it("refreshes a session with its refresh token", async () => {
+    const session = { access_token: "new-access", refresh_token: "new-refresh" };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: vi.fn().mockResolvedValue(session),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(refreshSession("old-refresh")).resolves.toEqual(session);
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringMatching(/\/auth\/v1\/token\?grant_type=refresh_token$/),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ refresh_token: "old-refresh" }),
+      }),
+    );
   });
 
   it("requests a password reset with the configured redirect", async () => {

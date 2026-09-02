@@ -10,6 +10,7 @@ Seasonal Harvest uses Supabase Auth for account registration, email/password log
 |---|---|---|
 | Sign up | `POST /api/v1/auth/sign-up` | Public |
 | Sign in | `POST /api/v1/auth/sign-in` | Public |
+| Refresh session | `POST /api/v1/auth/refresh` | Public (refresh token) |
 | Forgot password | `POST /api/v1/auth/forgot-password` | Public |
 | Reset password | `POST /api/v1/auth/reset-password` | Supabase bearer token |
 | Current user | `GET /api/v1/auth/me` | Supabase bearer token |
@@ -88,6 +89,19 @@ Content-Type: application/json
 ```
 
 The frontend should use `data.session.access_token` for protected API calls. Invalid credentials return `401` with a generic message.
+
+## Refresh session
+
+```http
+POST /api/v1/auth/refresh
+Content-Type: application/json
+```
+
+```json
+{ "refreshToken": "<refresh-token>" }
+```
+
+The response has the same `data.user` and `data.session` shape as sign-in. Clients must replace both stored tokens because Supabase may rotate the refresh token.
 
 ## Protected requests
 
