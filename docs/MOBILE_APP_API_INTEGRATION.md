@@ -140,6 +140,7 @@ Store tokens in platform-secure storage, such as Expo SecureStore, iOS Keychain,
 |---|---|---|---|
 | `POST` | `/auth/sign-up` | Public | `fullName`, `email`, `password` |
 | `POST` | `/auth/sign-in` | Public | `email`, `password` |
+| `POST` | `/auth/refresh` | Public | `refreshToken` |
 | `POST` | `/auth/forgot-password` | Public | `email` |
 | `POST` | `/auth/reset-password` | Recovery bearer token | `password` |
 | `GET` | `/auth/me` | Bearer token | None |
@@ -198,6 +199,34 @@ Example response:
 }
 ```
 
+### Restore and refresh the session
+
+Keep the access token, refresh token, expiry timestamp, and user metadata in platform-secure storage. On startup, restore that session instead of showing sign-in again. If the access token is expired or expires within one minute, exchange the refresh token before loading protected resources:
+
+```http
+POST /api/v1/auth/refresh
+Content-Type: application/json
+```
+
+```json
+{
+  "refreshToken": "<stored-refresh-token>"
+}
+```
+
+The response has the same `data.user` and `data.session` shape as sign-in. Persist both returned tokens because refresh-token rotation may occur.
+
+For authenticated API calls, handle `401` centrally:
+
+1. Share one in-flight refresh operation across concurrent requests.
+2. Save the rotated session and update in-memory authentication state.
+3. Retry each failed request exactly once with the new access token.
+4. Never retry the replayed request again, preventing an infinite refresh loop.
+5. Clear credentials and show sign-in only when refresh is rejected with `400` or `401`.
+6. Preserve the stored session on connectivity and temporary server failures.
+
+Refresh proactively before `expires_at` and whenever the app returns to the foreground. An explicit logout calls `/auth/sign-out` and clears local credentials even if the server request fails.
+
 ### Forgot and reset password
 
 Request an email:
@@ -238,7 +267,7 @@ Authorization: Bearer <access-token>
 
 The app must remove locally stored tokens after sign-out.
 
-The backend does not currently expose a refresh-token endpoint. Use the Supabase client SDK to refresh a session, or add a backend `/auth/refresh` endpoint before relying exclusively on this API for session lifecycle management.
+Do not run a second custom token lifecycle if the app instead uses a Supabase client configured with its own session persistence and automatic refresh.
 
 ## 5. Products
 
@@ -884,7 +913,7 @@ await apiFetch(`/inventory/${inventoryId}/adjust`, {
 
 ## 12. Suggested app-loading flow
 
-After authentication, validate the session with `/auth/me`, then load independent dashboard resources concurrently:
+After restoring or refreshing authentication, load independent dashboard resources concurrently. The shared API client should perform the one-time `401` refresh-and-retry behavior described above:
 
 ```js
 const [
@@ -913,9 +942,9 @@ Employees must not call these endpoints because the server returns `403`.
 
 Role-restricted controls should be hidden for employees. The server remains the source of truth and will return `403` when a user does not have the required role.
 
-## 13. Current integration limitations
+## 13. Current integration notes and limitations
 
-- There is no backend refresh-token endpoint.
+- Session restoration, proactive refresh, foreground refresh, refresh-token rotation, and one-time `401` replay are supported by the mobile authentication lifecycle.
 - Inventory category filtering is accepted by the controller but not applied by the repository.
 - Legacy inventory create, update, and delete handlers should not be used.
 - Product image upload is supported during creation, but image replacement is not supported on product update.

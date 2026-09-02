@@ -100,6 +100,22 @@ export const signIn = async (req, res, next) => {
   }
 };
 
+export const refreshSession = async (req, res, next) => {
+  try {
+    const refreshToken = String(req.body.refreshToken || req.body.refresh_token || "").trim();
+    if (!refreshToken) throw createHttpError("Refresh token is required.");
+
+    const session = await AuthService.refreshSession(refreshToken);
+    res.status(200).json({
+      success: true,
+      message: "Session refreshed successfully.",
+      data: { user: session.user, session },
+    });
+  } catch (error) {
+    next(mapAuthError(error));
+  }
+};
+
 export const forgotPassword = async (req, res, next) => {
   try {
     const email = normalizeEmail(req.body.email);

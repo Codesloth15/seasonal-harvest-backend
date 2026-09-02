@@ -56,6 +56,7 @@ Typical error response:
 | `GET` | `/` | Public | Basic server response |
 | `POST` | `/api/v1/auth/sign-up` | Public | Create an account |
 | `POST` | `/api/v1/auth/sign-in` | Public | Sign in with email and password |
+| `POST` | `/api/v1/auth/refresh` | Public | Exchange a refresh token for a rotated session |
 | `POST` | `/api/v1/auth/forgot-password` | Public | Request a password-recovery email |
 | `POST` | `/api/v1/auth/reset-password` | Bearer token | Set a new password using a recovery session |
 | `POST` | `/api/v1/auth/sign-out` | Bearer token | Revoke Supabase refresh sessions |
@@ -236,6 +237,23 @@ data.session.access_token
 ```
 
 Invalid credentials return a generic `401` response that does not reveal whether the email exists.
+
+### Refresh session
+
+```http
+POST /api/v1/auth/refresh
+Content-Type: application/json
+```
+
+Request body:
+
+```json
+{
+  "refreshToken": "<stored-refresh-token>"
+}
+```
+
+Success status: `200 OK`. The response uses the same `data.user` and `data.session` shape as sign-in. Clients must replace both stored tokens after success because Supabase may rotate the refresh token. A missing token returns `400`; a rejected or expired refresh session returns the upstream authentication error status.
 
 ### Forgot password
 

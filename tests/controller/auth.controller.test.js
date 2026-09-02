@@ -6,6 +6,7 @@ vi.mock("../../services/auth.service.js", () => ({
   sendPasswordReset: vi.fn(),
   changePassword: vi.fn(),
   logout: vi.fn(),
+  refreshSession: vi.fn(),
 }));
 
 import * as AuthService from "../../services/auth.service.js";
@@ -13,6 +14,7 @@ import {
   forgotPassword,
   getCurrentUser,
   resetPassword,
+  refreshSession,
   signIn,
   signOut,
   signUp,
@@ -89,6 +91,20 @@ describe("authentication controller", () => {
     });
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json.mock.calls[0][0].data).toEqual(data);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("refreshes a stored session", async () => {
+    const data = { user: { id: "user-1" }, access_token: "new-access", refresh_token: "new-refresh" };
+    AuthService.refreshSession.mockResolvedValue(data);
+    const res = createResponse();
+    const next = vi.fn();
+
+    await refreshSession(createRequest({ body: { refreshToken: "old-refresh" } }), res, next);
+
+    expect(AuthService.refreshSession).toHaveBeenCalledWith("old-refresh");
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json.mock.calls[0][0].data).toEqual({ user: data.user, session: data });
     expect(next).not.toHaveBeenCalled();
   });
 

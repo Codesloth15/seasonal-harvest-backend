@@ -1,12 +1,11 @@
 import supabase from "../config/supabase.js";
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "../config/env.js";
 
-const authenticatedRequest = async (path, accessToken, options = {}) => {
+const authRequest = async (path, options = {}) => {
   const response = await fetch(`${SUPABASE_URL}/auth/v1${path}`, {
     ...options,
     headers: {
       apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
       ...options.headers,
     },
@@ -21,6 +20,14 @@ const authenticatedRequest = async (path, accessToken, options = {}) => {
 
   return data;
 };
+
+const authenticatedRequest = (path, accessToken, options = {}) => authRequest(path, {
+  ...options,
+  headers: {
+    Authorization: `Bearer ${accessToken}`,
+    ...options.headers,
+  },
+});
 
 export const register = async ({ fullName, email, password }) => {
   const { data, error } = await supabase.auth.signUp({
@@ -45,6 +52,13 @@ export const login = async ({ email, password }) => {
 
   if (error) throw error;
   return data;
+};
+
+export const refreshSession = async (refreshToken) => {
+  return authRequest("/token?grant_type=refresh_token", {
+    method: "POST",
+    body: JSON.stringify({ refresh_token: refreshToken }),
+  });
 };
 
 export const sendPasswordReset = async (email, redirectTo) => {
