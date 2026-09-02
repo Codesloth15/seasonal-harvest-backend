@@ -7,7 +7,14 @@ export const aj = arcjet({
     shield({ mode: "LIVE" }),
     detectBot({
       mode: "LIVE",
-      allow: ["CATEGORY:SEARCH_ENGINE"],
+      // This API is consumed by Expo/React Native, which Arcjet can classify as
+      // programmatic or unknown traffic even when the request is legitimate.
+      allow: [
+        "CATEGORY:SEARCH_ENGINE",
+        "CATEGORY:PROGRAMMATIC",
+        "CATEGORY:TOOL",
+        "UNKNOWN_BOT",
+      ],
     }),
   ],
 });
