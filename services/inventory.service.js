@@ -143,7 +143,8 @@ export const deleteInventoryItem = async (id, accessToken) => {
   return inventory;
 };
 
-export const getInventorySummary = () => InventoryRepository.getInventorySummary();
+export const getInventorySummary = (accessToken) =>
+  InventoryRepository.getInventorySummary(accessToken);
 export const getLowStockItems = (accessToken) => InventoryRepository.getLowStockItems(accessToken);
 
 export const getInventoryTransactions = (id, input = {}, accessToken) => {

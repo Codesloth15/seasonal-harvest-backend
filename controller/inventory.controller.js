@@ -79,7 +79,7 @@ export const deleteProduct = async (req, res, next) => {
 
 export const getInventorySummary = async (req, res, next) => {
   try {
-    const summary = await InventoryService.getInventorySummary();
+    const summary = await InventoryService.getInventorySummary(req.accessToken);
     res.status(200).json({ success: true, data: summary });
   } catch (error) {
     next(error);
@@ -88,7 +88,7 @@ export const getInventorySummary = async (req, res, next) => {
 
 export const getLowStockItems = async (req, res, next) => {
   try {
-    const items = await InventoryService.getLowStockItems();
+    const items = await InventoryService.getLowStockItems(req.accessToken);
     res.status(200).json({ success: true, data: items, count: items.length });
   } catch (error) {
     next(error);

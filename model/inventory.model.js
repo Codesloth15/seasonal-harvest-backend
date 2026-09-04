@@ -123,8 +123,9 @@ export const deleteInventory = async (id, accessToken) => {
 };
 
 // Get inventory summary
-export const getInventorySummary = async () => {
-  const { data, error } = await supabase
+export const getInventorySummary = async (accessToken) => {
+  const client = accessToken ? createAuthenticatedSupabaseClient(accessToken) : supabase;
+  const { data, error } = await client
     .from(INVENTORY_TABLE)
     .select('id, quantity_on_hand, available_quantity, low_stock_threshold, product:products(price)');
   

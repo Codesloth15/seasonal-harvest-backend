@@ -4,7 +4,7 @@ import { ARCJET_KEY } from "./env.js";
 export const aj = arcjet({
   key: ARCJET_KEY,
   rules: [
-    shield({ mode: "LIVE" }),
+    shield({ mode: "DRY_RUN" }),
     detectBot({
       mode: "LIVE",
       // This API is consumed by Expo/React Native, which Arcjet can classify as

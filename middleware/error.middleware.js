@@ -48,7 +48,7 @@ const mapAiProviderError = (error) => {
     };
   }
   if (status === 429) return AI_ERROR_MAP.rate_limit_exceeded;
-  if (status === 403) {
+  if (status === 401 || status === 403) {
     return {
       statusCode: 503,
       message: "The AI assistant is not available with the configured provider credentials.",

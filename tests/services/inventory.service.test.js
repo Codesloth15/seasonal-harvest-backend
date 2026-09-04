@@ -130,4 +130,15 @@ describe("inventory service", () => {
       base_unit: "PIECE", package_unit: "PIECE", units_per_package: 15,
     }, "token")).rejects.toThrow("Package unit must differ");
   });
+
+  it("forwards authentication to inventory report queries", async () => {
+    InventoryRepository.getInventorySummary.mockResolvedValue({ lowStockCount: 0 });
+    InventoryRepository.getLowStockItems.mockResolvedValue([]);
+
+    await InventoryService.getInventorySummary("token");
+    await InventoryService.getLowStockItems("token");
+
+    expect(InventoryRepository.getInventorySummary).toHaveBeenCalledWith("token");
+    expect(InventoryRepository.getLowStockItems).toHaveBeenCalledWith("token");
+  });
 });

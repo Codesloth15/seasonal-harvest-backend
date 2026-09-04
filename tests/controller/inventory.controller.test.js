@@ -2,11 +2,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../services/inventory.service.js", () => ({
   adjustInventoryStock: vi.fn(),
+  getInventorySummary: vi.fn(),
+  getLowStockItems: vi.fn(),
   getInventoryTransactions: vi.fn(),
   configureInventoryPackaging: vi.fn(),
 }));
 
-import { adjustInventory, getInventoryTransactions } from "../../controller/inventory.controller.js";
+import {
+  adjustInventory,
+  getInventorySummary,
+  getInventoryTransactions,
+  getLowStockItems,
+} from "../../controller/inventory.controller.js";
 import * as InventoryService from "../../services/inventory.service.js";
 
 describe("inventory controller", () => {
@@ -64,6 +71,30 @@ describe("inventory controller", () => {
       success: true,
       data: result.items,
       pagination: result.pagination,
+    });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("uses the authenticated token for inventory reports", async () => {
+    const summary = { lowStockCount: 1 };
+    const items = [{ id: "inventory-1" }];
+    InventoryService.getInventorySummary.mockResolvedValue(summary);
+    InventoryService.getLowStockItems.mockResolvedValue(items);
+    const res = { status: vi.fn(), json: vi.fn() };
+    res.status.mockReturnValue(res);
+    const next = vi.fn();
+    const req = { accessToken: "token" };
+
+    await getInventorySummary(req, res, next);
+    await getLowStockItems(req, res, next);
+
+    expect(InventoryService.getInventorySummary).toHaveBeenCalledWith("token");
+    expect(InventoryService.getLowStockItems).toHaveBeenCalledWith("token");
+    expect(res.json).toHaveBeenNthCalledWith(1, { success: true, data: summary });
+    expect(res.json).toHaveBeenNthCalledWith(2, {
+      success: true,
+      data: items,
+      count: items.length,
     });
     expect(next).not.toHaveBeenCalled();
   });

@@ -11,8 +11,8 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.123.0",
     "@arcjet/node": "^1.2.0",
-    "@google/genai": "^2.20.0",
     "@supabase/supabase-js": "^2.104.1",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",

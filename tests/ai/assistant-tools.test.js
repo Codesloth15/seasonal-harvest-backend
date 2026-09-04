@@ -76,6 +76,19 @@ describe("assistant tools", () => {
     );
   });
 
+  it("loads the inventory summary with the authenticated access token", async () => {
+    InventoryService.getInventorySummary.mockResolvedValue({ lowStockCount: 2 });
+
+    const result = await runAssistantTool(
+      "get_inventory_summary",
+      {},
+      { accessToken: "admin-token" },
+    );
+
+    expect(InventoryService.getInventorySummary).toHaveBeenCalledWith("admin-token");
+    expect(result).toEqual({ lowStockCount: 2 });
+  });
+
   it("formats low-stock quantities using configured packaging", async () => {
     InventoryService.getLowStockItems.mockResolvedValue([
       { available_quantity: 0, low_stock_threshold: 5, base_unit: "PIECE", package_unit: "SACK", units_per_package: 20, product: { name: "Kikiam" } },
