@@ -53,8 +53,8 @@ FRONTEND_URL=http://localhost:5173
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-supabase-anon-key
 ARCJET_KEY=your-arcjet-key
-GEMINI_API_KEY=your-gemini-api-key
-GEMINI_MODEL=gemini-3.6-flash
+ANTHROPIC_API_KEY=your-anthropic-api-key
+ANTHROPIC_MODEL=claude-sonnet-4-6
 
 AI_RATE_LIMIT_MAX=10
 AI_RATE_LIMIT_WINDOW_MS=60000
@@ -75,7 +75,7 @@ supabase db push
 
 Native requests generally do not include a browser `Origin` header. Expo Web and other browser clients must use an exact origin listed in `CORS_ORIGINS`.
 
-Do not expose `GEMINI_API_KEY`, `ARCJET_KEY`, a Supabase service-role key, or database credentials in a mobile bundle. The app normally needs only `EXPO_PUBLIC_API_URL`. It needs the public Supabase anon key only if it directly uses the Supabase client for token refresh or recovery links.
+Do not expose `ANTHROPIC_API_KEY`, `ARCJET_KEY`, a Supabase service-role key, or database credentials in a mobile bundle. The app normally needs only `EXPO_PUBLIC_API_URL`. It needs the public Supabase anon key only if it directly uses the Supabase client for token refresh or recovery links.
 
 ## 3. Request and response conventions
 
@@ -671,11 +671,11 @@ Content-Type: application/json
 }
 ```
 
-The message is required and cannot exceed 2,000 characters. The default per-instance limit is 10 requests per authenticated user per 60 seconds. The Gemini-backed assistant is read-only and cannot mutate catalog or inventory records. It can answer fast-, slow-, and non-moving product questions, low/high-stock questions, and provide reorder recommendations with their analysis window, lead-time, and safety-stock basis.
+The message is required and cannot exceed 2,000 characters. The default per-instance limit is 10 requests per authenticated user per 60 seconds. The Claude-backed assistant is read-only and cannot mutate catalog or inventory records. It can answer fast-, slow-, and non-moving product questions, low/high-stock questions, and provide reorder recommendations with their analysis window, lead-time, and safety-stock basis.
 
-The backend currently uses `gemini-3.6-flash`. All AI inventory tools execute with
+The backend currently defaults to `claude-sonnet-4-6`. All AI inventory tools execute with
 the caller's Supabase bearer token so RLS sees the authenticated Admin or Super Admin;
-the Gemini provider never receives database credentials or the bearer token.
+the Claude provider never receives database credentials or the bearer token.
 
 ### Low-stock answer format
 

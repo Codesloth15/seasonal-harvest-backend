@@ -125,7 +125,8 @@ const handlers = {
       truncated: categories.length > 50,
     };
   },
-  get_inventory_summary: () => InventoryService.getInventorySummary(),
+  get_inventory_summary: (_args, context) =>
+    InventoryService.getInventorySummary(context.accessToken),
   get_low_stock_items: async (_args, context) => {
     const items = await InventoryService.getLowStockItems(context.accessToken);
     const formattedItems = items.slice(0, 50).map((item) => {

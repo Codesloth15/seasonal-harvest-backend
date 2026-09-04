@@ -9,8 +9,12 @@ export const {
   SUPABASE_ANON_KEY,
   FRONTEND_URL,
   CORS_ORIGINS,
-  GEMINI_API_KEY,
-  GEMINI_MODEL,
+  ANTHROPIC_MODEL,
   AI_RATE_LIMIT_MAX,
   AI_RATE_LIMIT_WINDOW_MS,
 } = process.env;
+
+// Temporary fallback lets existing local environments migrate without exposing
+// or copying their secret. Rename GEMINI_API_KEY to ANTHROPIC_API_KEY when able.
+export const ANTHROPIC_API_KEY =
+  process.env.ANTHROPIC_API_KEY || process.env.GEMINI_API_KEY;

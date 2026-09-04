@@ -1,19 +1,19 @@
 # AI Tools and Dependencies
 
-Last reviewed: September 1, 2026
+Last reviewed: September 4, 2026
 
 ## Purpose
 
 The Seasonal Harvest AI assistant answers authenticated questions about products,
 brands, categories, stock levels, product movement, and reorder recommendations using
-live backend queries. It uses Gemini with read-only function tools. The model never connects directly to
+live backend queries. It uses Claude with read-only tools. The model never connects directly to
 Supabase and never receives database credentials.
 
 ## Installed project dependency
 
 | Package | Type | Purpose |
 |---|---|---|
-| `@google/genai` | Runtime npm dependency | Official Google GenAI SDK used to call Gemini and process function calls |
+| `@anthropic-ai/sdk` | Runtime npm dependency | Official Anthropic SDK used to call Claude and process tool-use blocks |
 
 Existing dependencies reused by the AI endpoint:
 
@@ -22,7 +22,7 @@ Existing dependencies reused by the AI endpoint:
 | `express` | Hosts `POST /api/v1/assistant/chat` |
 | `@supabase/supabase-js` | Reads live product and inventory data through existing repositories |
 | `@arcjet/node` | Applies the existing global API protection and rate limiting |
-| `dotenv` | Loads the server-side Gemini key and model name |
+| `dotenv` | Loads the server-side Anthropic key and Claude model name |
 
 No vector database, embeddings package, agent framework, or conversation database is
 installed yet. Live structured product and stock questions do not need them. Add those
@@ -37,21 +37,21 @@ ai/
 `-- tools/
     `-- assistant-tools.js        # Read-only tool schemas and handlers
 config/
-`-- gemini.js                     # Lazy, server-side Gemini client
+`-- anthropic.js                  # Lazy, server-side Anthropic client
 controller/
 `-- assistant.controller.js       # HTTP validation and response handling
 routes/
 `-- assistant.routes.js           # Authenticated admin-only chat route
 services/
-`-- assistant.service.js          # Gemini function-call loop
+`-- assistant.service.js          # Claude tool-use loop
 ```
 
 ## Environment variables
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `GEMINI_API_KEY` | Yes for AI requests | Secret server-side API key. Never prefix it with `VITE_`, return it from an endpoint, or commit it. |
-| `GEMINI_MODEL` | No | Model override. Defaults to `gemini-3.6-flash` in the service. |
+| `ANTHROPIC_API_KEY` | Yes for AI requests | Secret server-side API key. Never prefix it with `VITE_`, return it from an endpoint, or commit it. |
+| `ANTHROPIC_MODEL` | No | Model override. Defaults to `claude-sonnet-4-6` in the service. |
 | `AI_RATE_LIMIT_MAX` | No | Maximum AI requests per authenticated user in one window. Defaults to 10. |
 | `AI_RATE_LIMIT_WINDOW_MS` | No | AI rate-limit window in milliseconds. Defaults to 60,000. |
 
@@ -105,10 +105,10 @@ movements, staff must review unusual adjustments before placing an order.
 
 ## Before live use
 
-1. Revoke any Gemini key exposed in chat or source control, create a replacement, and store it only in backend secret settings.
-2. Confirm the configured Gemini model is enabled for the Google AI project.
+1. Revoke any Anthropic key exposed in chat or source control, create a replacement, and store it only in backend secret settings.
+2. Confirm the configured Claude model is enabled for the Anthropic workspace.
 3. Apply and verify the existing Supabase migrations and RLS policies.
-4. Add persistent usage budgets and live Gemini/Supabase integration tests. Dedicated
+4. Add persistent usage budgets and live Claude/Supabase integration tests. Dedicated
    per-user rate limiting, metadata-only audit events, and unit tests are implemented.
 5. Review what inventory fields are safe to expose to each application role.
 6. Test tool answers against a non-production Supabase project.
@@ -121,5 +121,5 @@ movements, staff must review unusual adjustments before placing an order.
 
 Official references:
 
-- [Google GenAI JavaScript SDK](https://ai.google.dev/gemini-api/docs/libraries)
-- [Gemini function calling](https://ai.google.dev/gemini-api/docs/function-calling)
+- [Anthropic TypeScript SDK](https://platform.claude.com/docs/en/cli-sdks-libraries/sdks/typescript)
+- [Claude tool use](https://platform.claude.com/docs/en/build-with-claude/tool-use/overview)

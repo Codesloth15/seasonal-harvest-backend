@@ -1,12 +1,13 @@
 # Backend Feature Progress
 
-Last reviewed: September 1, 2026
+Last reviewed: September 2, 2026
 
-Repository audit: September 1, 2026. The current routes, services, migrations,
+Repository audit: September 2, 2026. The current routes, services, migrations,
 tests, and CI workflow were compared with every `PARTIAL` and `NONE` entry.
 The completed atomic inventory adjustment, stock ledger, transaction
 pagination, AI assistant foundation, dashboard analytics endpoint, and global
-dashboard transaction log are represented below.
+dashboard transaction log are represented below. Mobile session refresh and
+native-client Arcjet compatibility are also represented below.
 
 ## Status definitions
 
@@ -40,6 +41,20 @@ Acceptance example: a chicken product priced at PHP 210 per `PIECE`, configured
 with `package_unit = BALE` and `units_per_package = 15`, must convert an ADD of
 `1 BALE` into `quantity_change = 15 PIECE`. The transaction log must retain both
 the requested bale and the converted piece quantity.
+
+## Completed mobile API compatibility
+
+The deployed API and Expo client integration were rechecked on September 2,
+2026 after native login requests were blocked while the equivalent Postman
+request succeeded.
+
+| Required compatibility behavior | Status | Evidence |
+|---|---|---|
+| Refreshable mobile sessions | `DONE` | `POST /api/v1/auth/refresh` rotates the access and refresh tokens and returns the authenticated user |
+| Native API clients pass bot detection | `DONE` | Arcjet bot detection explicitly allows programmatic, tool, and unknown native-client classifications; configuration tests cover the allowlist |
+| Blocked requests remain observable during tuning | `DONE` | Shield is currently in `DEMO` mode while bot detection remains live, so Shield findings are recorded without denying legitimate mobile traffic |
+| Deployed mobile login compatibility | `DONE` | Native-compatible Arcjet configuration is deployed and the mobile sign-in flow reaches the authentication controller |
+| Deployed Home reporting | `DONE` | Inventory summary and low-stock endpoints returned successful live responses on September 2, 2026 |
 
 ## Progress summary
 
@@ -89,7 +104,7 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | Global sign-out request | `DONE` | `POST /api/v1/auth/sign-out` |
 | Supabase bearer-token validation | `DONE` | `auth.middleware.js` calls `supabase.auth.getUser(token)` |
 | Generic invalid-login response | `DONE` | Login does not reveal whether the email exists |
-| Global Arcjet protection | `DONE` | `/api/v1` mounts Arcjet before every feature router, so all API reads and writes use Shield, bot detection, and token-bucket rules; allow, rate-limit, bot, and Shield decisions are unit tested |
+| Global Arcjet protection | `DONE` | `/api/v1` mounts Arcjet before every feature router. Bot detection remains live and allows legitimate native/programmatic client classifications; Shield is in `DEMO` mode during compatibility tuning, and dedicated product-read rate limiting remains live. Arcjet configuration and decisions are unit tested. |
 | Password minimum length validation | `DONE` | Sign-up and reset require at least 8 characters |
 | Frontend password-reset URL | `NONE` | Set `FRONTEND_URL` in development and production environments |
 | Supabase reset redirect allowlist | `NONE` | Allow `<FRONTEND_URL>/reset-password` in Supabase Auth settings |
@@ -230,7 +245,7 @@ than relying on model training knowledge or unrestricted database access.
 | Category and brand performance | `NONE` | Compare product counts, inventory, units sold, and revenue by category and brand |
 | Dashboard analytics filters | `DONE` | Dashboard analytics validates inclusive UTC `from`/`to` dates, caps ranges at 366 days, defaults to 30 days, and supports daily, Monday-based weekly, and monthly buckets |
 | Analytics export | `NONE` | Provide role-authorized CSV or spreadsheet exports with safe size limits |
-| AI product and inventory assistant | `DONE` | Admin-protected `POST /api/v1/assistant/chat` uses Gemini 3.6 function calling with read-only, authenticated product/inventory/brand/category tools, per-user limits, metadata-only audit events, and safe provider-error mapping. Live Gemini and Supabase-backed low-stock queries were verified; low-stock answers are formatted deterministically from package conversion data. |
+| AI product and inventory assistant | `DONE` | Admin-protected `POST /api/v1/assistant/chat` uses Claude tool use with read-only, authenticated product/inventory/brand/category tools, per-user limits, metadata-only audit events, and safe provider-error mapping. Live Claude and Supabase-backed low-stock queries were verified; low-stock answers are formatted deterministically from package conversion data. |
 | AI analytics assistant | `PARTIAL` | The assistant can rank fast-, slow-, and non-moving products, report low/high stock, and calculate reorder suggestions from authenticated inventory movements using explicit lead-time and safety-stock inputs. Automated coverage passes; complete live verification of every movement and reorder question before marking `DONE`. |
 
 ## Quality and operations
@@ -239,7 +254,7 @@ than relying on model training knowledge or unrestricted database access.
 |---|---|---|
 | ESLint configuration | `DONE` | ESLint is configured and authentication files pass linting |
 | Versioned Supabase migrations | `DONE` | Inventory, catalog, auth/role, RLS repair, and product-image Storage migrations are committed |
-| Automated unit tests and coverage | `DONE` | 168 Vitest tests across 30 files cover dashboard and movement analytics, reorder calculations, authenticated AI tools, deterministic package-based low-stock output, Gemini tool loops, AI validation and rate limiting, safe audit metadata and provider errors, product-image upload, and error-response behavior, with enforced statement, branch, function, and line thresholds |
+| Automated unit tests and coverage | `DONE` | Vitest tests cover dashboard and movement analytics, reorder calculations, authenticated AI tools, deterministic package-based low-stock output, Claude tool loops, AI validation and rate limiting, safe audit metadata and provider errors, product-image upload, and error-response behavior, with enforced statement, branch, function, and line thresholds |
 | API integration tests | `NONE` | Test authentication, authorization, CRUD, RLS, and errors |
 | End-to-end frontend/backend tests | `NONE` | Cover registration, login, recovery, and main business flows |
 | CI pipeline | `PARTIAL` | Pull requests to `main` run dependency installation, ESLint, and all Vitest tests; migration checks and secret scanning remain |
@@ -264,7 +279,7 @@ Work should proceed in this order:
 5. Build users/roles administration.
 6. Build orders with transactional stock reservation and idempotent payment handling.
 7. Extend the dashboard foundation with category/brand performance, replenishment analytics, and order-backed sales metrics when order data exists.
-8. Complete live verification of the Gemini-backed, role-authorized inventory analytics assistant.
+8. Complete live verification of the Claude-backed, role-authorized inventory analytics assistant.
 9. Add notifications, observability, backup verification, and deployment automation.
 
 ## Rules for updating this file

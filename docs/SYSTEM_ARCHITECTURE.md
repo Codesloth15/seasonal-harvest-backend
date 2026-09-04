@@ -175,7 +175,7 @@ seasonal-harvest-backend/
 |   |-- brand.service.js           # Brand use cases
 |   |-- product.service.js         # Product use cases
 |   |-- inventory.service.js       # Inventory use cases and validation
-|   |-- assistant.service.js       # Gemini function-call loop
+|   |-- assistant.service.js       # Claude tool-use loop
 |   |-- analytics.service.js       # Dashboard filters and aggregation
 |   `-- sku.service.js             # Product SKU generation
 |
@@ -276,8 +276,8 @@ The active application requires at least:
 | `ARCJET_KEY` | Arcjet SDK key |
 | `CORS_ORIGINS` | Comma-separated trusted browser origins |
 | `FRONTEND_URL` | Password-recovery frontend destination |
-| `GEMINI_API_KEY` | Server-only key required for AI assistant requests |
-| `GEMINI_MODEL` | Optional Gemini model override |
+| `ANTHROPIC_API_KEY` | Server-only key required for AI assistant requests |
+| `ANTHROPIC_MODEL` | Optional Claude model override |
 
 ## 10. Development commands
 

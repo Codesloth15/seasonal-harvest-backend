@@ -18,7 +18,7 @@ vi.mock("../../config/supabase.js", () => ({
   createAuthenticatedSupabaseClient,
 }));
 
-import { getAllInventory } from "../../model/inventory.model.js";
+import { getAllInventory, getInventorySummary } from "../../model/inventory.model.js";
 
 describe("inventory model product details", () => {
   beforeEach(() => {
@@ -35,5 +35,27 @@ describe("inventory model product details", () => {
     expect(select).toContain("product_type");
     expect(select).toContain("brand_id");
     expect(select).toContain("brand:brands(id, name, logo_url, is_active)");
+  });
+
+  it("uses the authenticated client for inventory summaries", async () => {
+    query.select.mockResolvedValue({
+      data: [{
+        id: "inventory-1",
+        quantity_on_hand: 4,
+        available_quantity: 2,
+        low_stock_threshold: 3,
+        product: { price: 5 },
+      }],
+      error: null,
+    });
+
+    const summary = await getInventorySummary("token");
+
+    expect(createAuthenticatedSupabaseClient).toHaveBeenCalledWith("token");
+    expect(summary).toMatchObject({
+      lowStockCount: 1,
+      totalItems: 1,
+      totalQuantity: 4,
+    });
   });
 });

@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const generateContent = vi.fn();
+const createMessage = vi.fn();
 const runAssistantTool = vi.fn();
 const logAiAuditEvent = vi.fn();
 
-vi.mock("../../config/gemini.js", () => ({
-  getGeminiClient: () => ({ models: { generateContent } }),
+vi.mock("../../config/anthropic.js", () => ({
+  getAnthropicClient: () => ({ messages: { create: createMessage } }),
 }));
 vi.mock("../../ai/tools/assistant-tools.js", () => ({
   assistantTools: [{ type: "function", name: "test_tool", description: "Test", parameters: { type: "object" } }],
@@ -17,55 +17,92 @@ const { askAssistant } = await import("../../services/assistant.service.js");
 
 describe("assistant service", () => {
   beforeEach(() => {
-    generateContent.mockReset();
+    createMessage.mockReset();
     runAssistantTool.mockReset();
     logAiAuditEvent.mockReset();
   });
 
-  it("returns a direct Gemini answer and writes safe lifecycle audit events", async () => {
-    generateContent.mockResolvedValue({ responseId: "resp-1", functionCalls: [], text: "Current stock is 10." });
-    const result = await askAssistant("What is the stock?", { userId: "admin-1", role: "admin" });
+  it("returns a direct Claude answer and writes safe lifecycle audit events", async () => {
+    createMessage.mockResolvedValue({
+      id: "resp-1",
+      content: [{ type: "text", text: "Current stock is 10." }],
+    });
+    const result = await askAssistant(
+      "What is the stock?",
+      { userId: "admin-1", role: "admin" },
+      [
+        { role: "user", content: "Remember product A." },
+        { role: "assistant", content: "I will remember product A." },
+      ],
+    );
 
     expect(result).toEqual({ answer: "Current stock is 10.", responseId: "resp-1" });
-    expect(generateContent).toHaveBeenCalledWith(expect.objectContaining({
-      contents: [{ role: "user", parts: [{ text: "What is the stock?" }] }],
-      config: expect.objectContaining({ maxOutputTokens: 800 }),
+    expect(createMessage).toHaveBeenCalledWith(expect.objectContaining({
+      messages: [
+        { role: "user", content: "Remember product A." },
+        { role: "assistant", content: "I will remember product A." },
+        { role: "user", content: "What is the stock?" },
+      ],
+      max_tokens: 800,
+      tools: [expect.objectContaining({
+        name: "test_tool",
+        input_schema: { type: "object" },
+      })],
     }));
     expect(logAiAuditEvent).toHaveBeenNthCalledWith(2, "request_succeeded", expect.objectContaining({ responseId: "resp-1" }));
   });
 
-  it("executes Gemini function calls with authenticated context", async () => {
-    generateContent
+  it("executes Claude tool calls with authenticated context", async () => {
+    createMessage
       .mockResolvedValueOnce({
-        functionCalls: [{ name: "test_tool", args: { days: 30 } }],
-        candidates: [{ content: { role: "model", parts: [{ functionCall: { name: "test_tool", args: { days: 30 } } }] } }],
+        id: "resp-tool",
+        content: [{
+          type: "tool_use",
+          id: "tool-1",
+          name: "test_tool",
+          input: { days: 30 },
+        }],
       })
-      .mockResolvedValueOnce({ responseId: "resp-final", functionCalls: [], text: "Tool-backed answer." });
+      .mockResolvedValueOnce({
+        id: "resp-final",
+        content: [{ type: "text", text: "Tool-backed answer." }],
+      });
     runAssistantTool.mockResolvedValue({ count: 2 });
 
     await askAssistant("Use a tool", { accessToken: "token" });
 
     expect(runAssistantTool).toHaveBeenCalledWith("test_tool", { days: 30 }, { accessToken: "token" });
-    expect(generateContent).toHaveBeenNthCalledWith(2, expect.objectContaining({
-      contents: expect.arrayContaining([
-        { role: "user", parts: [{ functionResponse: { name: "test_tool", response: { result: { count: 2 } } } }] },
+    expect(createMessage).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      messages: expect.arrayContaining([
+        {
+          role: "user",
+          content: [{
+            type: "tool_result",
+            tool_use_id: "tool-1",
+            content: "{\"count\":2}",
+          }],
+        },
       ]),
     }));
   });
 
-  it("audits Gemini failures and marks them as provider errors", async () => {
+  it("audits Claude failures and marks them as provider errors", async () => {
     const providerError = Object.assign(new Error("provider unavailable"), { status: 429 });
-    generateContent.mockRejectedValue(providerError);
+    createMessage.mockRejectedValue(providerError);
     await expect(askAssistant("Hello")).rejects.toBe(providerError);
     expect(providerError.isAiProviderError).toBe(true);
     expect(logAiAuditEvent).toHaveBeenLastCalledWith("request_failed", expect.objectContaining({ errorCode: "AI_REQUEST_FAILED" }));
   });
 
-  it("formats low-stock tool results deterministically without a second Gemini call", async () => {
-    generateContent.mockResolvedValue({
-      responseId: "low-stock-response",
-      functionCalls: [{ name: "get_low_stock_items", args: {} }],
-      candidates: [{ content: { role: "model", parts: [] } }],
+  it("formats low-stock tool results deterministically without a second Claude call", async () => {
+    createMessage.mockResolvedValue({
+      id: "low-stock-response",
+      content: [{
+        type: "tool_use",
+        id: "tool-low",
+        name: "get_low_stock_items",
+        input: {},
+      }],
     });
     runAssistantTool.mockResolvedValue({
       items: [
@@ -80,16 +117,21 @@ describe("assistant service", () => {
       answer: "Kikiam: 0 SACK\nHotdog: 5 BOX",
       responseId: "low-stock-response",
     });
-    expect(generateContent).toHaveBeenCalledTimes(1);
+    expect(createMessage).toHaveBeenCalledTimes(1);
   });
 
   it("stops an endless tool loop after five rounds", async () => {
-    generateContent.mockResolvedValue({
-      functionCalls: [{ name: "test_tool", args: {} }],
-      candidates: [{ content: { role: "model", parts: [] } }],
+    createMessage.mockResolvedValue({
+      id: "loop-response",
+      content: [{
+        type: "tool_use",
+        id: "tool-loop",
+        name: "test_tool",
+        input: {},
+      }],
     });
     runAssistantTool.mockResolvedValue({ ok: true });
     await expect(askAssistant("Loop forever")).rejects.toMatchObject({ code: "AI_TOOL_LIMIT", statusCode: 502 });
-    expect(generateContent).toHaveBeenCalledTimes(6);
+    expect(createMessage).toHaveBeenCalledTimes(6);
   });
 });

@@ -68,4 +68,27 @@ describe("error middleware product image errors", () => {
       code: "AI_UNAVAILABLE",
     });
   });
+
+  it("does not expose invalid AI-provider credential details", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const response = createResponse();
+
+    errorMiddleware(
+      {
+        isAiProviderError: true,
+        status: 401,
+        message: "raw provider credential details",
+      },
+      {},
+      response,
+      vi.fn(),
+    );
+
+    expect(response.status).toHaveBeenCalledWith(503);
+    expect(response.json).toHaveBeenCalledWith({
+      success: false,
+      error: "The AI assistant is not available with the configured provider credentials.",
+      code: "AI_UNAVAILABLE",
+    });
+  });
 });
