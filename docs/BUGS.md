@@ -16,16 +16,17 @@ This file is the single tracker for defects, production errors, and confirmed te
 
 ## Active bugs
 
-Current audit: 4 active entries, all open.
+Current audit: 4 active entries: 3 open and 1 fix ready (SKU update September 23, 2026).
 
 | State | Bugs | What is needed |
 |---|---|---|
-| Code fix needed | `BUG-009`, `BUG-010`, `BUG-012` | Implement collision-safe SKU generation, route-specific auth throttling, and real Supabase integration tests |
+| Code fix needed | `BUG-010`, `BUG-012` | Implement route-specific auth throttling and real Supabase integration tests |
+| Deployment verification needed | `BUG-009` | Apply the SKU counter migration, deploy the API, and verify product creation |
 | Configuration fix needed | `BUG-011` | Configure `FRONTEND_URL` and the matching Supabase recovery redirect allowlist |
 
 | ID | Severity | Area | Problem | Status | Required action |
 |---|---|---|---|---|---|
-| `BUG-009` | Medium | Products | SKU generation can calculate the same sequence during concurrent product creation | `OPEN` | Generate the sequence atomically or retry safely when the unique constraint rejects a collision |
+| `BUG-009` | Medium | Products | Count-based SKU generation can collide during concurrent creation or after deletions | `FIX READY` | Replaced counting with admin-only atomic database counters. Unit tests and local PostgreSQL deletion/concurrency/permission checks pass. Apply `20260923000001_allocate_product_sku.sql` before deploying the API; verify in the target environment before resolving. |
 | `BUG-010` | Medium | Authentication | Authentication routes only use the global Arcjet limit and do not have stricter per-route throttling | `OPEN` | Add dedicated limits for sign-in, sign-up, forgot-password, and reset-password without weakening the global policy |
 | `BUG-011` | Medium | Password recovery | Password-reset delivery can fail or redirect incorrectly when `FRONTEND_URL` and Supabase redirect URLs are not configured consistently | `OPEN` | Configure the production frontend URL and allow `<FRONTEND_URL>/reset-password` in Supabase Auth |
 | `BUG-012` | Medium | Testing | Database RLS behavior is checked through migration text but not through integration tests against a real test database | `OPEN` | Add authenticated integration tests for profile reads, admin role checks, product mutations, and forbidden roles |

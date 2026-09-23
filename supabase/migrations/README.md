@@ -101,6 +101,29 @@ base-unit stock atomically.
 Adds `package_unit` and `units_per_package` to catalog products, backfills existing
 inventory packaging, and keeps product and inventory packaging synchronized.
 
+### `20260923000001_allocate_product_sku.sql`
+
+Adds persistent per-prefix SKU counters and an admin-only allocation RPC. Seeds
+the counters from the greatest existing numeric suffix, including inactive
+products, and preserves every existing SKU. Allocation is atomic; deleted
+products and failed inserts do not recycle allocated numbers. Gaps are expected.
+
+Pause product creation during rollout, apply this migration, then deploy the
+backend that calls `allocate_product_sku` before resuming writes. Do not run old
+count-based writers alongside the allocator: they do not advance the counters.
+Verify branded and unbranded product creation with an authenticated admin.
+
+Local PostgreSQL regression checks (requires `psql` and a disposable local
+cluster; creates and drops its own test database):
+
+```sh
+node tests/integration/sku-allocation.mjs postgresql://postgres@127.0.0.1:55439/postgres
+```
+
+The checks exercise concurrent allocations, deletion gaps, inactive legacy SKUs,
+numbering above 999, and permissions with a minimal role-helper fixture. They do
+not replace deployment verification against Supabase Auth and the full schema.
+
 ## Database Schema Reference
 
 ### Inventory Table (current normalized schema)

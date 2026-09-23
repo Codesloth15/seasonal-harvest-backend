@@ -63,7 +63,7 @@ request succeeded.
 | Application foundation | 11 | 0 | 1 |
 | Authentication and security | 13 | 0 | 9 |
 | Inventory | 13 | 0 | 2 |
-| Products | 10 | 0 | 2 |
+| Products | 10 | 1 | 1 |
 | Brands | 8 | 0 | 2 |
 | Categories | 8 | 0 | 2 |
 | Users and roles | 5 | 0 | 6 |
@@ -71,7 +71,7 @@ request succeeded.
 | Notifications and workflows | 0 | 0 | 6 |
 | AI and analytics | 4 | 2 | 5 |
 | Quality and operations | 4 | 1 | 10 |
-| **Total** | **76** | **3** | **55** |
+| **Total** | **76** | **4** | **54** |
 
 The counts are a planning snapshot and should be updated whenever a feature changes status.
 
@@ -152,7 +152,7 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | SKU generation | `DONE` | `sku.service.js` generates a brand/product sequence |
 | Product table migration | `DONE` | Schema, constraints, indexes, RLS, grants, and timestamps are committed |
 | Product write authorization | `DONE` | Mutations use authenticated clients and admin role enforcement |
-| Collision-safe SKU generation | `NONE` | Add a unique constraint and atomic sequence/retry behavior |
+| Collision-safe SKU generation | `PARTIAL` | September 23: authenticated `allocate_product_sku` RPC uses persistent atomic per-prefix counters seeded from existing SKUs, including inactive products. Local PostgreSQL checks passed for deletion gaps, 24 concurrent allocations, values above 999, and permissions. Apply `20260923000001_allocate_product_sku.sql` before deploying the API and verify product creation in the target environment; the unique SKU index already exists. |
 | Product pagination | `NONE` | Add validated limit/cursor behavior |
 | Product image upload | `DONE` | The admin-protected multipart `image` flow, MIME/size validation, Storage policies, public URL persistence, rollback behavior, frontend migration away from Base64 JSON, and target-project upload were verified. |
 
@@ -273,7 +273,7 @@ than relying on model training knowledge or unrestricted database access.
 Work should proceed in this order:
 
 1. Configure `FRONTEND_URL` and Supabase recovery redirects.
-2. Make SKU generation collision-safe.
+2. Deploy and verify collision-safe SKU generation (implementation and local PostgreSQL verification completed September 23).
 3. Add authentication, authorization, Storage-policy, and RLS integration tests.
 4. Add security headers, stricter auth throttling, structured audit events, and secret scanning.
 5. Build users/roles administration.

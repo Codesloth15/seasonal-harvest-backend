@@ -36,6 +36,7 @@ vi.mock("../../config/supabase.js", () => ({
 }));
 
 vi.mock("../../services/sku.service.js", () => ({ generateSku: vi.fn(() => "SKU-001") }));
+import { generateSku } from "../../services/sku.service.js";
 
 import {
   createProduct,
@@ -96,11 +97,13 @@ describe("product model", () => {
     }, "token")).resolves.toMatchObject({ ...product, currency: "PHP" });
 
     expect(userBuilder.insert).toHaveBeenCalledWith(expect.objectContaining({
+      sku: "SKU-001",
       unit: "PIECE",
       package_unit: "BALE",
       units_per_package: 15,
       price: 12.5,
     }));
+    expect(generateSku).toHaveBeenCalledWith("UNBRANDED", "Twine", "token");
   });
 
   it("rejects incomplete or invalid product packaging", async () => {
