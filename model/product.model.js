@@ -143,7 +143,7 @@ export const createProduct = async (product, accessToken) => {
     brandName = brand.name;
   }
 
-  const sku = await generateSku(brandName, values.name);
+  const sku = await generateSku(brandName, values.name, accessToken);
 
   const userClient = createAuthenticatedSupabaseClient(accessToken);
   const { data, error } = await userClient

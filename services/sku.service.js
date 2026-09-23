@@ -1,6 +1,6 @@
-import supabase from "../config/supabase.js";
+import { createAuthenticatedSupabaseClient } from "../config/supabase.js";
 
-export const generateSku = async (brandName, productName) => {
+export const generateSku = async (brandName, productName, accessToken) => {
 
   // Create brand code
   const brandCode = brandName
@@ -18,15 +18,10 @@ export const generateSku = async (brandName, productName) => {
 
   const prefix = `${brandCode}-${productCode}`;
 
-  // Find existing SKU count
-  const { data, error } = await supabase
-    .from("products")
-    .select("sku")
-    .like("sku", `${prefix}%`);
+  const { data, error } = await createAuthenticatedSupabaseClient(accessToken)
+    .rpc("allocate_product_sku", { p_prefix: prefix });
 
   if (error) throw error;
 
-  const number = String(data.length + 1).padStart(3, "0");
-
-  return `${prefix}-${number}`;
+  return data;
 };
