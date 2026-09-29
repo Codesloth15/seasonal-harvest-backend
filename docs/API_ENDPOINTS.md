@@ -59,7 +59,7 @@ Typical error response:
 | `POST` | `/api/v1/auth/refresh` | Public | Exchange a refresh token for a rotated session |
 | `POST` | `/api/v1/auth/forgot-password` | Public | Request a password-recovery email |
 | `POST` | `/api/v1/auth/reset-password` | Bearer token | Set a new password using a recovery session |
-| `POST` | `/api/v1/auth/sign-out` | Bearer token | Revoke Supabase refresh sessions |
+| `POST` | `/api/v1/auth/sign-out` | Public (session credentials optional) | Revoke Supabase refresh sessions |
 | `GET` | `/api/v1/auth/me` | Bearer token | Return the authenticated user |
 | `GET` | `/api/v1/inventory` | Bearer token | List product inventory balances |
 | `GET` | `/api/v1/inventory/reports/summary` | Public route | Return inventory totals |
@@ -304,9 +304,16 @@ Returns the Supabase user associated with the verified access token.
 ```http
 POST /api/v1/auth/sign-out
 Authorization: Bearer <access-token>
+Content-Type: application/json
 ```
 
-Requests a global Supabase sign-out. The frontend must also remove its locally stored access and refresh tokens.
+Optional request body:
+
+```json
+{ "refreshToken": "<refresh-token>" }
+```
+
+Requests a global Supabase sign-out. Supplying the refresh token allows revocation when the access token has expired. The endpoint is idempotent and returns `200 OK` for missing, expired, or already-revoked session credentials. The frontend must always remove its locally stored access and refresh tokens.
 
 ## Inventory endpoints
 
@@ -494,6 +501,7 @@ Multipart fields:
 | `name` | Text | Required |
 | `description` | Text | Optional |
 | `product_type` | Text | Required: `BRANDED` or `UNBRANDED` |
+| `sku` | Text | Required, manually assigned, 1-64 characters; duplicates are allowed |
 | `barcode` | Text | Optional |
 | `unit` | Text | Optional |
 | `price` | Text/number | Required non-negative PHP amount |
@@ -502,7 +510,7 @@ Multipart fields:
 | `is_active` | Text/boolean | Optional; defaults to active |
 | `image` | File | Optional JPEG, PNG, WebP, or AVIF; maximum 5 MB |
 
-Required fields: `category_id`, `name`, `product_type`, and `price`. A `BRANDED` product also requires `brand_id`. The backend generates the SKU and reports prices in PHP. `price` is the price of one `unit`. For a 15-piece bale priced at PHP 12.50 per piece, send `unit: "PIECE"`, `price: 12.50`, `package_unit: "BALE"`, and `units_per_package: 15`. Packaging is returned on product responses and synchronized with inventory.
+Required fields: `category_id`, `name`, `product_type`, `sku`, and `price`. A `BRANDED` product also requires `brand_id`. The client assigns the SKU manually, and multiple products may use the same SKU. Prices are reported in PHP. `price` is the price of one `unit`. For a 15-piece bale priced at PHP 12.50 per piece, send `unit: "PIECE"`, `price: 12.50`, `package_unit: "BALE"`, and `units_per_package: 15`. Packaging is returned on product responses and synchronized with inventory.
 
 Product list, detail, create, and update responses include a nested `brand`
 object with `id`, `name`, `logo_url`, and `is_active`. Unbranded products return
@@ -610,7 +618,6 @@ Security: this endpoint requires an active admin or super-admin profile.
 
 - Add pagination and strict query validation to collection endpoints.
 - Add integration tests that verify Express authorization and Supabase RLS together.
-- Make SKU allocation collision-safe under concurrent product creation.
 - Verify pending migrations, product-image storage, dashboard analytics, and
   role-protected requests against the target Supabase environment.
 - Add security headers, route-specific authentication throttling, secret

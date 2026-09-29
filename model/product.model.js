@@ -1,16 +1,15 @@
 import supabase, { createAuthenticatedSupabaseClient } from "../config/supabase.js";
-import { generateSku } from "../services/sku.service.js";
 
 export const PRODUCT_TABLE = "products";
 export const PRODUCT_CURRENCY = "PHP";
 export const PRODUCT_SELECT = "*, brand:brands(id, name, logo_url, is_active)";
-
 const PRODUCT_FIELDS = new Set([
   "category_id",
   "brand_id",
   "name",
   "description",
   "product_type",
+  "sku",
   "barcode",
   "unit",
   "package_unit",
@@ -19,7 +18,10 @@ const PRODUCT_FIELDS = new Set([
   "image_url",
   "is_active",
 ]);
-
+const INVENTORY_UNITS = new Set([
+  "BOX", "PACK", "BALE", "PIECE", "SACK", "CRATE", "TRAY", "BUNDLE",
+  "KILOGRAM", "GRAM", "LITER", "MILLILITER",
+]);
 const pickProductFields = (values) =>
   Object.fromEntries(
     Object.entries(values).filter(([key, value]) =>
@@ -40,10 +42,31 @@ const validatePrice = (values) => {
   values.price = price;
 };
 
-const INVENTORY_UNITS = new Set([
-  "BOX", "PACK", "BALE", "PIECE", "SACK", "CRATE", "TRAY", "BUNDLE",
-  "KILOGRAM", "GRAM", "LITER", "MILLILITER",
-]);
+const validateSku = (values, { required = false } = {}) => {
+  if (values.sku === undefined) {
+    if (required) {
+      const error = new Error("sku is required.");
+      error.statusCode = 400;
+      throw error;
+    }
+    return;
+  }
+
+  if (typeof values.sku !== "string") {
+    const error = new Error("sku must be text.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  values.sku = values.sku.trim();
+  if (!values.sku || values.sku.length > 64) {
+    const error = new Error("sku must contain between 1 and 64 characters.");
+    error.statusCode = 400;
+    throw error;
+  }
+};
+
+
 
 const normalizeUnit = (value) =>
   typeof value === "string" ? value.trim().toUpperCase() : value;
@@ -99,9 +122,10 @@ const withCurrency = (product) =>
 export const createProduct = async (product, accessToken) => {
   const values = pickProductFields(product);
   validatePrice(values);
+  validateSku(values, { required: true });
   validatePackaging(values, { creating: true });
   if (!values.name || !values.category_id || !values.product_type || values.price === undefined) {
-    const error = new Error("name, category_id, product_type, and price are required.");
+    const error = new Error("name, category_id, product_type, sku, and price are required.");
     error.statusCode = 400;
     throw error;
   }
@@ -111,7 +135,6 @@ export const createProduct = async (product, accessToken) => {
     throw error;
   }
   const isBranded = values.product_type === "BRANDED";
-  let brandName = "UNBRANDED";
 
   if (isBranded && !values.brand_id) {
     const error = new Error("brand_id is required for BRANDED products.");
@@ -139,18 +162,13 @@ export const createProduct = async (product, accessToken) => {
       error.statusCode = 400;
       throw error;
     }
-
-    brandName = brand.name;
   }
-
-  const sku = await generateSku(brandName, values.name, accessToken);
 
   const userClient = createAuthenticatedSupabaseClient(accessToken);
   const { data, error } = await userClient
     .from(PRODUCT_TABLE)
     .insert({
       ...values,
-      sku: sku,
       is_active: values.is_active ?? true,
     })
     .select(PRODUCT_SELECT)
@@ -228,6 +246,7 @@ export const updateProduct = async (id, updates, accessToken) => {
     throw error;
   }
   validatePrice(values);
+  validateSku(values);
   validatePackaging(values);
 
   const userClient = createAuthenticatedSupabaseClient(accessToken);

@@ -54,6 +54,14 @@ describe("catalog migrations", () => {
     expect(sql).toMatch(/products_barcode_unique/i);
   });
 
+  it("allows duplicate manually assigned product SKUs", async () => {
+    const sql = await readMigration("20260929000001_allow_duplicate_product_skus.sql");
+
+    expect(sql).toMatch(/DROP INDEX IF EXISTS public\.products_sku_unique_ci/i);
+    expect(sql).toMatch(/CREATE INDEX IF NOT EXISTS products_sku_ci_idx/i);
+    expect(sql).not.toMatch(/CREATE UNIQUE INDEX/i);
+  });
+
   it("secures product writes for authenticated admins only", async () => {
     const sql = await readMigration("20260728000003_create_products_table.sql");
 

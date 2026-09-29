@@ -57,7 +57,7 @@ Creates brands, active-only public reads, case-insensitive unique names, automat
 
 ### `20260728000003_create_products_table.sql`
 
-Creates products with category and brand relationships, branded/unbranded constraints, unique SKU and barcode indexes, active-only public reads, automatic timestamps, and admin-only write policies.
+Creates products with category and brand relationships, branded/unbranded constraints, the original SKU index, a unique barcode index, active-only public reads, automatic timestamps, and admin-only write policies. SKU uniqueness is removed by the September 29 migration below.
 
 ### `20260728000004_fix_profile_signup_trigger.sql`
 
@@ -103,15 +103,15 @@ inventory packaging, and keeps product and inventory packaging synchronized.
 
 ### `20260923000001_allocate_product_sku.sql`
 
+Historical migration retained for environments that have already applied it.
+The product API now requires a manually assigned SKU and no longer calls this
+allocator. A later migration removes SKU uniqueness because manually assigned
+values may be shared by multiple products.
+
 Adds persistent per-prefix SKU counters and an admin-only allocation RPC. Seeds
 the counters from the greatest existing numeric suffix, including inactive
 products, and preserves every existing SKU. Allocation is atomic; deleted
 products and failed inserts do not recycle allocated numbers. Gaps are expected.
-
-Pause product creation during rollout, apply this migration, then deploy the
-backend that calls `allocate_product_sku` before resuming writes. Do not run old
-count-based writers alongside the allocator: they do not advance the counters.
-Verify branded and unbranded product creation with an authenticated admin.
 
 Local PostgreSQL regression checks (requires `psql` and a disposable local
 cluster; creates and drops its own test database):
@@ -123,6 +123,11 @@ node tests/integration/sku-allocation.mjs postgresql://postgres@127.0.0.1:55439/
 The checks exercise concurrent allocations, deletion gaps, inactive legacy SKUs,
 numbering above 999, and permissions with a minimal role-helper fixture. They do
 not replace deployment verification against Supabase Auth and the full schema.
+
+### `20260929000001_allow_duplicate_product_skus.sql`
+
+Drops the case-insensitive unique SKU index and replaces it with a non-unique
+lookup index. Product IDs remain the canonical unique identifiers.
 
 ## Database Schema Reference
 

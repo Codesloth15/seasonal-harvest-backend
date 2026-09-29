@@ -162,13 +162,20 @@ export const getCurrentUser = async (req, res) => {
 
 export const signOut = async (req, res, next) => {
   try {
-    await AuthService.logout(getAccessToken(req));
+    const refreshToken = String(req.body?.refreshToken || req.body?.refresh_token || "").trim() || null;
+    await AuthService.logout(getAccessToken(req), refreshToken);
 
     res.status(200).json({
       success: true,
       message: "Signed out successfully.",
     });
   } catch (error) {
+    if ([400, 401, 403].includes(Number(error.status || error.statusCode))) {
+      return res.status(200).json({
+        success: true,
+        message: "Signed out successfully.",
+      });
+    }
     next(mapAuthError(error));
   }
 };

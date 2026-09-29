@@ -174,7 +174,30 @@ describe("authentication controller", () => {
 
     await signOut(createRequest({ authorization: "Bearer access-token" }), res, next);
 
-    expect(AuthService.logout).toHaveBeenCalledWith("access-token");
+    expect(AuthService.logout).toHaveBeenCalledWith("access-token", null);
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("uses the refresh token to sign out when supplied", async () => {
+    AuthService.logout.mockResolvedValue();
+    const res = createResponse();
+    const next = vi.fn();
+
+    await signOut(createRequest({ body: { refreshToken: "refresh-token" } }), res, next);
+
+    expect(AuthService.logout).toHaveBeenCalledWith(null, "refresh-token");
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("treats an already expired session as a successful sign-out", async () => {
+    AuthService.logout.mockRejectedValue(Object.assign(new Error("session expired"), { status: 401 }));
+    const res = createResponse();
+    const next = vi.fn();
+
+    await signOut(createRequest({ authorization: "Bearer expired-token" }), res, next);
+
     expect(res.status).toHaveBeenCalledWith(200);
     expect(next).not.toHaveBeenCalled();
   });

@@ -61,6 +61,10 @@ export const refreshSession = async (refreshToken) => {
   });
 };
 
+const isRejectedSession = (error) => (
+  [400, 401, 403].includes(Number(error?.status || error?.statusCode))
+);
+
 export const sendPasswordReset = async (email, redirectTo) => {
   const options = redirectTo ? { redirectTo } : undefined;
   const { error } = await supabase.auth.resetPasswordForEmail(email, options);
@@ -75,8 +79,22 @@ export const changePassword = async (accessToken, password) => {
   });
 };
 
-export const logout = async (accessToken) => {
-  await authenticatedRequest("/logout?scope=global", accessToken, {
+export const logout = async (accessToken, refreshToken) => {
+  if (!accessToken && !refreshToken) return;
+
+  if (accessToken) {
+    try {
+      await authenticatedRequest("/logout?scope=global", accessToken, {
+        method: "POST",
+      });
+      return;
+    } catch (error) {
+      if (!refreshToken || !isRejectedSession(error)) throw error;
+    }
+  }
+
+  const session = await refreshSession(refreshToken);
+  await authenticatedRequest("/logout?scope=global", session.access_token, {
     method: "POST",
   });
 };

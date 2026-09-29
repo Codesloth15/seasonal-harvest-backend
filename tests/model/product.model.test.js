@@ -35,9 +35,6 @@ vi.mock("../../config/supabase.js", () => ({
   createAuthenticatedSupabaseClient,
 }));
 
-vi.mock("../../services/sku.service.js", () => ({ generateSku: vi.fn(() => "SKU-001") }));
-import { generateSku } from "../../services/sku.service.js";
-
 import {
   createProduct,
   deleteProduct,
@@ -90,6 +87,7 @@ describe("product model", () => {
       category_id: "category-id",
       name: "Twine",
       product_type: "UNBRANDED",
+      sku: "  TWINE-001  ",
       unit: "piece",
       package_unit: "bale",
       units_per_package: "15",
@@ -97,13 +95,26 @@ describe("product model", () => {
     }, "token")).resolves.toMatchObject({ ...product, currency: "PHP" });
 
     expect(userBuilder.insert).toHaveBeenCalledWith(expect.objectContaining({
-      sku: "SKU-001",
+      sku: "TWINE-001",
       unit: "PIECE",
       package_unit: "BALE",
       units_per_package: 15,
       price: 12.5,
     }));
-    expect(generateSku).toHaveBeenCalledWith("UNBRANDED", "Twine", "token");
+  });
+
+  it("requires a manually entered SKU when creating a product", async () => {
+    const base = {
+      category_id: "category-id",
+      name: "Twine",
+      product_type: "UNBRANDED",
+      price: 12.5,
+    };
+
+    await expect(createProduct(base, "token"))
+      .rejects.toMatchObject({ statusCode: 400, message: "sku is required." });
+    await expect(createProduct({ ...base, sku: "   " }, "token"))
+      .rejects.toMatchObject({ statusCode: 400 });
   });
 
   it("rejects incomplete or invalid product packaging", async () => {
@@ -111,6 +122,7 @@ describe("product model", () => {
       category_id: "category-id",
       name: "Twine",
       product_type: "UNBRANDED",
+      sku: "TWINE-001",
       price: 12.5,
     };
 

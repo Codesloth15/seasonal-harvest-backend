@@ -247,7 +247,9 @@ Required policies:
 
 Product reads are public for active records. Product creation, updates, and soft disabling require a verified access token and an active `admin` or `super_admin` profile. The model forwards the token through a user-scoped Supabase client, and RLS independently checks the role.
 
-SKU generation still counts matching records before insertion and is not collision-safe under concurrency. The database unique index prevents duplicates, but a retry-safe or database-generated sequence is still required for reliable concurrent creation.
+SKUs are entered manually and duplicate values are allowed. Apply
+`20260929000001_allow_duplicate_product_skus.sql` to replace the former unique
+SKU index with a non-unique lookup index.
 
 ## Grants and RLS
 
