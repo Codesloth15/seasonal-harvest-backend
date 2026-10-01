@@ -14,7 +14,7 @@ Seasonal Harvest uses Supabase Auth for account registration, email/password log
 | Forgot password | `POST /api/v1/auth/forgot-password` | Public |
 | Reset password | `POST /api/v1/auth/reset-password` | Supabase bearer token |
 | Current user | `GET /api/v1/auth/me` | Supabase bearer token |
-| Sign out | `POST /api/v1/auth/sign-out` | Supabase bearer token |
+| Sign out | `POST /api/v1/auth/sign-out` | Public (session credentials optional) |
 
 Arcjet also protects these routes through the global shield, bot-detection, and token-bucket rules.
 
@@ -181,9 +181,14 @@ The new password must contain at least 8 characters.
 ```http
 POST /api/v1/auth/sign-out
 Authorization: Bearer <access-token>
+Content-Type: application/json
 ```
 
-The backend requests a global Supabase sign-out, which revokes the user's refresh tokens. The frontend must also remove its stored access and refresh tokens.
+```json
+{ "refreshToken": "<refresh-token>" }
+```
+
+The refresh token is optional but lets the backend obtain a valid access token and request a global Supabase sign-out when the supplied access token has expired. Sign-out is idempotent: missing, expired, or already-revoked credentials still return `200`, so an intentional logout does not look like an unexpected session expiry. The frontend must always remove its stored access and refresh tokens, even if the request fails for another reason.
 
 ## Frontend example
 

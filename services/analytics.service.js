@@ -242,15 +242,57 @@ export const getInventoryMovementAnalysis = async (input = {}, accessToken, now 
   const descendingMovement = (a, b) => b.outboundQuantity - a.outboundQuantity;
   const ascendingMovement = (a, b) => a.outboundQuantity - b.outboundQuantity;
   const descendingStock = (a, b) => b.availableQuantity - a.availableQuantity;
+  const fastMoving = products.filter((item) => item.outboundQuantity > 0).sort(descendingMovement);
+  const slowMoving = products.filter((item) => item.outboundQuantity > 0).sort(ascendingMovement);
+  const nonMoving = products.filter((item) => item.outboundQuantity === 0).sort(descendingStock);
+  const needsAttention = products
+    .map((item) => {
+      if (item.suggestedOrderQuantity > 0) {
+        return {
+          ...item,
+          attentionType: "REORDER",
+          attentionMessage: `Order ${item.suggestedOrderQuantity} ${item.baseUnit ?? "units"} to cover lead time and safety stock.`,
+        };
+      }
+      if (item.availableQuantity <= item.lowStockThreshold) {
+        return {
+          ...item,
+          attentionType: "LOW_STOCK",
+          attentionMessage: "Stock is at or below its low-stock threshold.",
+        };
+      }
+      if (item.outboundQuantity === 0 && item.availableQuantity > 0) {
+        return {
+          ...item,
+          attentionType: "NO_MOVEMENT",
+          attentionMessage: `No outbound movement in ${days} days; review pricing, placement, or purchasing.`,
+        };
+      }
+      return null;
+    })
+    .filter(Boolean)
+    .sort((a, b) => {
+      const priority = { REORDER: 0, LOW_STOCK: 1, NO_MOVEMENT: 2 };
+      return priority[a.attentionType] - priority[b.attentionType]
+        || b.suggestedOrderQuantity - a.suggestedOrderQuantity
+        || b.availableQuantity - a.availableQuantity;
+    });
   return {
     basis: {
       from: from.toISOString(), toExclusive: toExclusive.toISOString(), days, leadTimeDays, safetyStockDays,
       formula: "max(0, ceil(avg_daily_outbound * (lead_time_days + safety_stock_days)) - available_quantity)",
       caveat: "SUBTRACT movements are used as outbound demand; review manual, damaged, expired, or missing-stock adjustments before ordering.",
     },
-    fastMoving: products.filter((item) => item.outboundQuantity > 0).sort(descendingMovement).slice(0, limit),
-    slowMoving: products.filter((item) => item.outboundQuantity > 0).sort(ascendingMovement).slice(0, limit),
-    nonMoving: products.filter((item) => item.outboundQuantity === 0).sort(descendingStock).slice(0, limit),
+    summary: {
+      productCount: products.length,
+      movingCount: fastMoving.length,
+      nonMovingCount: nonMoving.length,
+      needsAttentionCount: needsAttention.length,
+    },
+    needsAttention: needsAttention.slice(0, limit),
+    fastMoving: fastMoving.slice(0, limit),
+    slowMoving: slowMoving.slice(0, limit),
+    nonMoving: nonMoving.slice(0, limit),
     lowStock: products.filter((item) => item.availableQuantity <= item.lowStockThreshold).sort((a, b) => a.availableQuantity - b.availableQuantity).slice(0, limit),
     highStock: [...products].sort(descendingStock).slice(0, limit),
     reorderSuggestions: products.filter((item) => item.suggestedOrderQuantity > 0).sort((a, b) => b.suggestedOrderQuantity - a.suggestedOrderQuantity).slice(0, limit),

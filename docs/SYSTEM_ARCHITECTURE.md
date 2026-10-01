@@ -79,7 +79,7 @@ Currently mounted route groups:
 | `/api/v1/categories` | `routes/category.routes.js` | Category CRUD |
 | `/api/v1/auth` | `routes/auth.routes.js` | Supabase authentication and recovery |
 | `/api/v1/assistant` | `routes/assistant.routes.js` | Admin-only read-only AI assistant |
-| `/api/v1/analytics` | `routes/analytics.routes.js` | Admin-only dashboard metrics and paginated global transaction logs |
+| `/api/v1/analytics` | `routes/analytics.routes.js` | Admin-only dashboard metrics, product-movement analysis, and paginated global transaction logs |
 
 ### Routing layer
 
@@ -105,8 +105,8 @@ Service modules apply use-case validation and orchestration. In particular,
 `analytics.service.js` validates custom date ranges, pagination, ledger filters,
 and daily/weekly/monthly granularity, then produces catalog KPIs, inventory
 KPIs, chart-ready stock movement buckets, and a complete paginated activity
-feed. `sku.service.js` generates product SKUs from brand and product
-names, followed by a three-digit sequence based on existing matching SKUs.
+feed. Product creation validates the manually supplied SKU. Duplicate SKU values
+are allowed; product IDs remain the canonical unique identifiers.
 
 ### Configuration and infrastructure
 
@@ -177,7 +177,6 @@ seasonal-harvest-backend/
 |   |-- inventory.service.js       # Inventory use cases and validation
 |   |-- assistant.service.js       # Claude tool-use loop
 |   |-- analytics.service.js       # Dashboard filters and aggregation
-|   `-- sku.service.js             # Product SKU generation
 |
 |-- supabase/
 |   |-- config.toml                # Supabase CLI/local project configuration
@@ -301,8 +300,8 @@ supabase db push
 ## 11. Recommended direction
 
 Continue using Supabase as the single identity and persistence architecture.
-The next backend priorities are collision-safe SKU generation, integration
-tests that verify Express authorization and Supabase RLS together, and
+The next backend priorities are integration tests that verify Express
+authorization and Supabase RLS together, and
 extending dashboard analytics with replenishment and category/brand metrics.
 Sales, revenue, and best-seller analytics should follow the order schema and
 immutable order-item snapshots rather than being inferred from stock movement.

@@ -132,4 +132,43 @@ describe("authentication service", () => {
       }),
     );
   });
+
+  it("refreshes and globally signs out when the access token is expired", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: vi.fn().mockResolvedValue({ message: "expired" }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({ access_token: "new-access" }),
+      })
+      .mockResolvedValueOnce({ ok: true, status: 204 });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await logout("expired-access", "refresh-token");
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      expect.stringMatching(/\/auth\/v1\/token\?grant_type=refresh_token$/),
+      expect.objectContaining({ body: JSON.stringify({ refresh_token: "refresh-token" }) }),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      expect.stringMatching(/\/auth\/v1\/logout\?scope=global$/),
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer new-access" }),
+      }),
+    );
+  });
+
+  it("does nothing when sign-out has no session credentials", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(logout(null, null)).resolves.toBeUndefined();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

@@ -59,7 +59,7 @@ Typical error response:
 | `POST` | `/api/v1/auth/refresh` | Public | Exchange a refresh token for a rotated session |
 | `POST` | `/api/v1/auth/forgot-password` | Public | Request a password-recovery email |
 | `POST` | `/api/v1/auth/reset-password` | Bearer token | Set a new password using a recovery session |
-| `POST` | `/api/v1/auth/sign-out` | Bearer token | Revoke Supabase refresh sessions |
+| `POST` | `/api/v1/auth/sign-out` | Public (session credentials optional) | Revoke Supabase refresh sessions |
 | `GET` | `/api/v1/auth/me` | Bearer token | Return the authenticated user |
 | `GET` | `/api/v1/inventory` | Bearer token | List product inventory balances |
 | `GET` | `/api/v1/inventory/reports/summary` | Public route | Return inventory totals |
@@ -67,6 +67,7 @@ Typical error response:
 | `GET` | `/api/v1/inventory/:id` | Public | Get an inventory item |
 | `POST` | `/api/v1/assistant/chat` | Admin bearer token | Ask the read-only AI assistant about live products and inventory |
 | `GET` | `/api/v1/analytics/dashboard` | Admin bearer token | Return catalog, inventory, and stock-movement dashboard metrics |
+| `GET` | `/api/v1/analytics/inventory-movement` | Admin bearer token | Rank fast-, slow-, and non-moving products and return attention/reorder guidance |
 | `GET` | `/api/v1/analytics/transactions` | Admin bearer token | Browse the complete paginated inventory transaction log |
 | `PUT` | `/api/v1/inventory/:id/packaging` | Bearer token | Configure base/package conversion |
 | `POST` | `/api/v1/inventory/:id/adjust` | Bearer token | Atomically add or subtract stock and record a transaction |
@@ -114,6 +115,35 @@ The response contains:
 
 Sales, revenue, order trends, and best-seller metrics are intentionally absent
 until the order module and immutable order-item snapshots are implemented.
+
+### Product movement analysis
+
+```http
+GET /api/v1/analytics/inventory-movement?days=30&leadTimeDays=7&safetyStockDays=3&limit=50
+Authorization: Bearer <admin-access-token>
+```
+
+This endpoint requires an active `admin` or `super_admin` profile. All query
+parameters are optional positive integers:
+
+| Parameter | Default | Maximum | Purpose |
+| --- | ---: | ---: | --- |
+| `days` | `30` | `366` | Inventory-movement lookback window |
+| `leadTimeDays` | `7` | `90` | Expected supplier lead time |
+| `safetyStockDays` | `3` | `90` | Additional demand coverage |
+| `limit` | `10` | `50` | Maximum rows returned in each ranked list |
+
+The response contains `summary`, `needsAttention`, `fastMoving`, `slowMoving`,
+`nonMoving`, `lowStock`, `highStock`, and `reorderSuggestions`. Each product
+includes available stock, outbound quantity, average daily outbound movement,
+target stock, and suggested order quantity. Attention rows use `REORDER`,
+`LOW_STOCK`, or `NO_MOVEMENT` as `attentionType`.
+
+The mobile Product Movement screen requests this endpoint with `limit=50` and
+lets the user select a 7-, 30-, or 90-day `days` value. Movement currently
+means all `SUBTRACT` inventory transactions. It is not a sales or best-seller
+report: damaged, expired, missing, supplier-return, and manual adjustments must
+be reviewed before using the result to place an order.
 
 ### Dashboard transaction log
 
@@ -304,9 +334,16 @@ Returns the Supabase user associated with the verified access token.
 ```http
 POST /api/v1/auth/sign-out
 Authorization: Bearer <access-token>
+Content-Type: application/json
 ```
 
-Requests a global Supabase sign-out. The frontend must also remove its locally stored access and refresh tokens.
+Optional request body:
+
+```json
+{ "refreshToken": "<refresh-token>" }
+```
+
+Requests a global Supabase sign-out. Supplying the refresh token allows revocation when the access token has expired. The endpoint is idempotent and returns `200 OK` for missing, expired, or already-revoked session credentials. The frontend must always remove its locally stored access and refresh tokens.
 
 ## Inventory endpoints
 
@@ -494,6 +531,7 @@ Multipart fields:
 | `name` | Text | Required |
 | `description` | Text | Optional |
 | `product_type` | Text | Required: `BRANDED` or `UNBRANDED` |
+| `sku` | Text | Required, manually assigned, 1-64 characters; duplicates are allowed |
 | `barcode` | Text | Optional |
 | `unit` | Text | Optional |
 | `price` | Text/number | Required non-negative PHP amount |
@@ -502,7 +540,7 @@ Multipart fields:
 | `is_active` | Text/boolean | Optional; defaults to active |
 | `image` | File | Optional JPEG, PNG, WebP, or AVIF; maximum 5 MB |
 
-Required fields: `category_id`, `name`, `product_type`, and `price`. A `BRANDED` product also requires `brand_id`. The backend generates the SKU and reports prices in PHP. `price` is the price of one `unit`. For a 15-piece bale priced at PHP 12.50 per piece, send `unit: "PIECE"`, `price: 12.50`, `package_unit: "BALE"`, and `units_per_package: 15`. Packaging is returned on product responses and synchronized with inventory.
+Required fields: `category_id`, `name`, `product_type`, `sku`, and `price`. A `BRANDED` product also requires `brand_id`. The client assigns the SKU manually, and multiple products may use the same SKU. Prices are reported in PHP. `price` is the price of one `unit`. For a 15-piece bale priced at PHP 12.50 per piece, send `unit: "PIECE"`, `price: 12.50`, `package_unit: "BALE"`, and `units_per_package: 15`. Packaging is returned on product responses and synchronized with inventory.
 
 Product list, detail, create, and update responses include a nested `brand`
 object with `id`, `name`, `logo_url`, and `is_active`. Unbranded products return
@@ -610,7 +648,6 @@ Security: this endpoint requires an active admin or super-admin profile.
 
 - Add pagination and strict query validation to collection endpoints.
 - Add integration tests that verify Express authorization and Supabase RLS together.
-- Make SKU allocation collision-safe under concurrent product creation.
 - Verify pending migrations, product-image storage, dashboard analytics, and
   role-protected requests against the target Supabase environment.
 - Add security headers, route-specific authentication throttling, secret
