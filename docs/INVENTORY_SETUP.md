@@ -100,6 +100,7 @@ adds 15 to `quantity_on_hand`. Unknown or empty product units fall back to `PIEC
 | `POST` | `/inventory/:inventoryId/adjust` | Bearer token | Available |
 | `GET` | `/inventory/:inventoryId/transactions` | Bearer token | Available |
 | `GET` | `/analytics/dashboard` | Admin or super-admin bearer token | Available; consolidated inventory KPIs and movement trends |
+| `GET` | `/analytics/inventory-movement` | Admin or super-admin bearer token | Available; fast/slow/non-moving rankings and attention/reorder guidance |
 | `GET` | `/analytics/transactions` | Admin or super-admin bearer token | Available; paginated global transaction ledger |
 | `POST` | `/inventory` | Bearer token | Legacy handler; do not use with normalized inventory |
 | `PUT` | `/inventory/:inventoryId` | Bearer token | Legacy handler; do not use with normalized inventory |

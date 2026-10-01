@@ -3,13 +3,19 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("../../services/analytics.service.js", () => ({
   getDashboardAnalytics: vi.fn(),
   getDashboardTransactions: vi.fn(),
+  getInventoryMovementAnalysis: vi.fn(),
 }));
 
 import {
   getDashboardAnalytics,
   getDashboardTransactions,
+  getInventoryMovementAnalysis,
 } from "../../services/analytics.service.js";
-import { getDashboard, getTransactions } from "../../controller/analytics.controller.js";
+import {
+  getDashboard,
+  getInventoryMovement,
+  getTransactions,
+} from "../../controller/analytics.controller.js";
 
 const response = () => {
   const res = { status: vi.fn(), json: vi.fn() };
@@ -61,6 +67,26 @@ describe("analytics controller", () => {
       data: result.items,
       pagination: result.pagination,
     });
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it("returns inventory movement analysis", async () => {
+    const data = { summary: { needsAttentionCount: 2 } };
+    getInventoryMovementAnalysis.mockResolvedValue(data);
+    const res = response();
+    const next = vi.fn();
+
+    await getInventoryMovement(
+      { query: { days: "30", limit: "25" }, accessToken: "token" },
+      res,
+      next,
+    );
+
+    expect(getInventoryMovementAnalysis).toHaveBeenCalledWith(
+      { days: "30", limit: "25" },
+      "token",
+    );
+    expect(res.json).toHaveBeenCalledWith({ success: true, data });
     expect(next).not.toHaveBeenCalled();
   });
 });

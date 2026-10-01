@@ -154,6 +154,12 @@ describe("analytics service", () => {
     expect(result.reorderSuggestions[0]).toMatchObject({
       productId: "fast", averageDailyOutbound: 1, targetStock: 10, suggestedOrderQuantity: 8,
     });
+    expect(result.summary).toEqual({
+      productCount: 3, movingCount: 2, nonMovingCount: 1, needsAttentionCount: 2,
+    });
+    expect(result.needsAttention.map((item) => item.attentionType)).toEqual([
+      "REORDER", "NO_MOVEMENT",
+    ]);
   });
 
   it("rejects invalid movement-analysis parameters", async () => {

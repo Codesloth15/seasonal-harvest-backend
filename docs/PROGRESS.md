@@ -238,6 +238,7 @@ than relying on model training knowledge or unrestricted database access.
 |---|---|---|
 | Total catalog product metric | `DONE` | Admin-protected dashboard analytics report catalog totals separately from inventory rows, including active/inactive and branded/unbranded counts |
 | Inventory trends | `DONE` | `GET /api/v1/analytics/dashboard` returns ADD/SUBTRACT totals, net change, transaction count, and chart-ready daily, weekly, or monthly series; `GET /api/v1/analytics/transactions` exposes the complete ledger through validated filters and pagination |
+| Product movement report | `DONE` | `GET /api/v1/analytics/inventory-movement` returns fast-, slow-, and non-moving rankings, attention reasons, and transparent reorder suggestions for configurable 7/30/90-day mobile views |
 | Sales analytics | `NONE` | Aggregate completed order and immutable order-item data after the order module exists |
 | Revenue and order trends | `NONE` | Report revenue, order volume, and average order value by validated date range |
 | Best-selling products | `NONE` | Rank products by units sold and revenue while preserving historical order-item data |

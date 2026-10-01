@@ -67,6 +67,7 @@ Typical error response:
 | `GET` | `/api/v1/inventory/:id` | Public | Get an inventory item |
 | `POST` | `/api/v1/assistant/chat` | Admin bearer token | Ask the read-only AI assistant about live products and inventory |
 | `GET` | `/api/v1/analytics/dashboard` | Admin bearer token | Return catalog, inventory, and stock-movement dashboard metrics |
+| `GET` | `/api/v1/analytics/inventory-movement` | Admin bearer token | Rank fast-, slow-, and non-moving products and return attention/reorder guidance |
 | `GET` | `/api/v1/analytics/transactions` | Admin bearer token | Browse the complete paginated inventory transaction log |
 | `PUT` | `/api/v1/inventory/:id/packaging` | Bearer token | Configure base/package conversion |
 | `POST` | `/api/v1/inventory/:id/adjust` | Bearer token | Atomically add or subtract stock and record a transaction |
@@ -114,6 +115,35 @@ The response contains:
 
 Sales, revenue, order trends, and best-seller metrics are intentionally absent
 until the order module and immutable order-item snapshots are implemented.
+
+### Product movement analysis
+
+```http
+GET /api/v1/analytics/inventory-movement?days=30&leadTimeDays=7&safetyStockDays=3&limit=50
+Authorization: Bearer <admin-access-token>
+```
+
+This endpoint requires an active `admin` or `super_admin` profile. All query
+parameters are optional positive integers:
+
+| Parameter | Default | Maximum | Purpose |
+| --- | ---: | ---: | --- |
+| `days` | `30` | `366` | Inventory-movement lookback window |
+| `leadTimeDays` | `7` | `90` | Expected supplier lead time |
+| `safetyStockDays` | `3` | `90` | Additional demand coverage |
+| `limit` | `10` | `50` | Maximum rows returned in each ranked list |
+
+The response contains `summary`, `needsAttention`, `fastMoving`, `slowMoving`,
+`nonMoving`, `lowStock`, `highStock`, and `reorderSuggestions`. Each product
+includes available stock, outbound quantity, average daily outbound movement,
+target stock, and suggested order quantity. Attention rows use `REORDER`,
+`LOW_STOCK`, or `NO_MOVEMENT` as `attentionType`.
+
+The mobile Product Movement screen requests this endpoint with `limit=50` and
+lets the user select a 7-, 30-, or 90-day `days` value. Movement currently
+means all `SUBTRACT` inventory transactions. It is not a sales or best-seller
+report: damaged, expired, missing, supplier-return, and manual adjustments must
+be reviewed before using the result to place an order.
 
 ### Dashboard transaction log
 
