@@ -21,3 +21,15 @@ export const getTransactions = async (req, res, next) => {
     next(error);
   }
 };
+
+export const getInventoryMovement = async (req, res, next) => {
+  try {
+    const analysis = await AnalyticsService.getInventoryMovementAnalysis(
+      req.query,
+      req.accessToken,
+    );
+    res.status(200).json({ success: true, data: analysis });
+  } catch (error) {
+    next(error);
+  }
+};

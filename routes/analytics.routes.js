@@ -1,5 +1,9 @@
 import { Router } from "express";
-import { getDashboard, getTransactions } from "../controller/analytics.controller.js";
+import {
+  getDashboard,
+  getInventoryMovement,
+  getTransactions,
+} from "../controller/analytics.controller.js";
 import authorize from "../middleware/auth.middleware.js";
 import requireRole from "../middleware/role.middleware.js";
 
@@ -17,6 +21,13 @@ analyticsRouter.get(
   authorize,
   requireRole("admin", "super_admin"),
   getTransactions,
+);
+
+analyticsRouter.get(
+  "/inventory-movement",
+  authorize,
+  requireRole("admin", "super_admin"),
+  getInventoryMovement,
 );
 
 export default analyticsRouter;

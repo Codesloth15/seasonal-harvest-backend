@@ -795,6 +795,29 @@ it must not be labelled revenue, purchase cost, or profit.
 
 The backend does not yet provide sales, revenue, order, or best-seller metrics.
 
+### Product movement and attention report
+
+Use this admin/super-admin endpoint for the Product Movement screen:
+
+```http
+GET /api/v1/analytics/inventory-movement?days=30&leadTimeDays=7&safetyStockDays=3&limit=50
+Authorization: Bearer <admin-access-token>
+```
+
+`days` accepts positive integers up to 366; the mobile UI sends `7`, `30`, or
+`90`. `leadTimeDays` and `safetyStockDays` accept values up to 90, and `limit`
+accepts values up to 50. Defaults are 30, 7, 3, and 10 respectively.
+
+The response groups rows into `needsAttention`, `fastMoving`, `slowMoving`,
+`nonMoving`, `lowStock`, `highStock`, and `reorderSuggestions`, with summary
+counts in `summary`. Attention rows contain an `attentionType` of `REORDER`,
+`LOW_STOCK`, or `NO_MOVEMENT` and an explanatory `attentionMessage`.
+
+Movement is calculated from `SUBTRACT` inventory transactions. The UI must not
+label it as sales or best sellers, and should preserve the warning to review
+damaged, expired, missing, supplier-return, and manual adjustments before
+ordering.
+
 ### Complete dashboard transaction log
 
 Use the global analytics log for an admin activity table that can browse every
@@ -887,6 +910,16 @@ const result = await apiFetch(
 const dashboard = result.data;
 ```
 
+Product movement report:
+
+```js
+const result = await apiFetch(
+  "/analytics/inventory-movement?days=30&limit=50",
+  { token: accessToken },
+);
+const movement = result.data;
+```
+
 Paginated dashboard activity:
 
 ```js
@@ -940,7 +973,8 @@ const [
 
 For an Admin or Super Admin analytics screen, request the consolidated
 `/analytics/dashboard` resource instead of deriving KPIs from the inventory
-list, and load `/analytics/transactions` for the paginated activity log.
+list, `/analytics/inventory-movement` for product rankings and attention
+guidance, and `/analytics/transactions` for the paginated activity log.
 Employees must not call these endpoints because the server returns `403`.
 
 Role-restricted controls should be hidden for employees. The server remains the source of truth and will return `403` when a user does not have the required role.

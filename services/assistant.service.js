@@ -3,6 +3,7 @@ import { ASSISTANT_INSTRUCTIONS } from "../ai/prompts/assistant.prompt.js";
 import { ANTHROPIC_MODEL } from "../config/env.js";
 import { getAnthropicClient } from "../config/anthropic.js";
 import { logAiAuditEvent } from "../utils/ai-audit.js";
+import { productCardsFromTool } from "../ai/tools/product-cards.js";
 
 const DEFAULT_MODEL = "claude-sonnet-4-6";
 const MAX_TOOL_ROUNDS = 5;
@@ -42,7 +43,7 @@ const responseText = (response) => response.content
 const formatLowStockAnswer = (toolResult) => {
   if (!toolResult.items?.length) return "No low-stock products found.";
   return toolResult.items
-    .map((item) => `${item.name}: ${item.displayQuantity} ${item.displayUnit}`)
+    .map((item) => `${item.brand || "Unbranded"}: ${item.name} — ${item.displayQuantity} ${item.displayUnit}`)
     .join("\n");
 };
 
@@ -53,6 +54,7 @@ export const askAssistant = async (message, actor = {}, history = []) => {
   try {
     const anthropic = getAnthropicClient();
     const messages = [...history, { role: "user", content: message }];
+    const cards = new Map();
     let response = await createMessage(anthropic, messages);
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round += 1) {
@@ -62,6 +64,7 @@ export const askAssistant = async (message, actor = {}, history = []) => {
         const result = {
           answer: responseText(response) || "No answer was generated.",
           responseId,
+          ...(cards.size ? { products: [...cards.values()] } : {}),
         };
         logAiAuditEvent("request_succeeded", {
           ...actor,
@@ -84,11 +87,17 @@ export const askAssistant = async (message, actor = {}, history = []) => {
       const lowStockCall = executedCalls.find(
         ({ call }) => call.name === "get_low_stock_items",
       );
+      for (const { call, result } of executedCalls) {
+        for (const card of productCardsFromTool(call.name, result)) {
+          if (cards.has(card.id) || cards.size < 50) cards.set(card.id, card);
+        }
+      }
       if (lowStockCall) {
         const responseId = response.id || null;
         const result = {
           answer: formatLowStockAnswer(lowStockCall.result),
           responseId,
+          ...(cards.size ? { products: [...cards.values()] } : {}),
         };
         logAiAuditEvent("request_succeeded", {
           ...actor,

@@ -79,7 +79,7 @@ Currently mounted route groups:
 | `/api/v1/categories` | `routes/category.routes.js` | Category CRUD |
 | `/api/v1/auth` | `routes/auth.routes.js` | Supabase authentication and recovery |
 | `/api/v1/assistant` | `routes/assistant.routes.js` | Admin-only read-only AI assistant |
-| `/api/v1/analytics` | `routes/analytics.routes.js` | Admin-only dashboard metrics and paginated global transaction logs |
+| `/api/v1/analytics` | `routes/analytics.routes.js` | Admin-only dashboard metrics, product-movement analysis, and paginated global transaction logs |
 
 ### Routing layer
 
