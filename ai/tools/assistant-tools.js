@@ -138,6 +138,9 @@ const handlers = {
         : availableBaseQuantity;
       return {
         name: item.product?.name || "Unknown product",
+        productId: item.product_id || item.product?.id,
+        imageUrl: item.product?.image_url || null,
+        brand: item.product?.brand?.name || "Unbranded",
         displayQuantity,
         displayUnit: hasPackageConversion ? item.package_unit : item.base_unit || item.product?.unit,
         availableBaseQuantity,

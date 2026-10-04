@@ -106,16 +106,18 @@ describe("assistant service", () => {
     });
     runAssistantTool.mockResolvedValue({
       items: [
-        { name: "Kikiam", displayQuantity: 0, displayUnit: "SACK" },
-        { name: "Hotdog", displayQuantity: 5, displayUnit: "BOX" },
+        { brand: "Acme", name: "Kikiam", displayQuantity: 0, displayUnit: "SACK" },
+        { productId: "hotdog-1", imageUrl: "https://example.com/hotdog.jpg", brand: "Acme", name: "Hotdog", displayQuantity: 5.5, displayUnit: "BOX" },
+        { name: "Chicken", displayQuantity: 3, displayUnit: "KILO" },
       ],
     });
 
     const result = await askAssistant("Show low-stock products", { accessToken: "token" });
 
     expect(result).toEqual({
-      answer: "Kikiam: 0 SACK\nHotdog: 5 BOX",
+      answer: "Acme: Kikiam — 0 SACK\nAcme: Hotdog — 5.5 BOX\nUnbranded: Chicken — 3 KILO",
       responseId: "low-stock-response",
+      products: [{ id: "hotdog-1", imageUrl: "https://example.com/hotdog.jpg", brand: "Acme", name: "Hotdog", quantity: 5.5, unit: "BOX" }],
     });
     expect(createMessage).toHaveBeenCalledTimes(1);
   });

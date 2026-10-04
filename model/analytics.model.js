@@ -72,7 +72,7 @@ export const getInventoryMovementSourceData = async ({ from, toExclusive }, acce
     client
       .from("inventory")
       .select(
-        "id, product_id, available_quantity, quantity_on_hand, reserved_quantity, low_stock_threshold, base_unit, package_unit, units_per_package, product:products(id, name, sku, unit, is_active)",
+        "id, product_id, available_quantity, quantity_on_hand, reserved_quantity, low_stock_threshold, base_unit, package_unit, units_per_package, product:products(id, name, sku, unit, image_url, is_active, brand:brands(name))",
       ),
     client
       .from("inventory_transactions")
