@@ -92,7 +92,7 @@ describe("assistant tools", () => {
   it("formats low-stock quantities using configured packaging", async () => {
     InventoryService.getLowStockItems.mockResolvedValue([
       { available_quantity: 0, low_stock_threshold: 5, base_unit: "PIECE", package_unit: "SACK", units_per_package: 20, product: { name: "Kikiam" } },
-      { available_quantity: 60, low_stock_threshold: 75, base_unit: "PIECE", package_unit: "BOX", units_per_package: 12, product: { name: "Hotdog" } },
+      { available_quantity: 66, low_stock_threshold: 75, base_unit: "PIECE", package_unit: "BOX", units_per_package: 12, product: { name: "Hotdog", brand: { name: "Acme" } } },
       { available_quantity: 3, low_stock_threshold: 5, base_unit: "KILO", package_unit: null, units_per_package: null, product: { name: "Chicken" } },
     ]);
 
@@ -100,8 +100,8 @@ describe("assistant tools", () => {
 
     expect(InventoryService.getLowStockItems).toHaveBeenCalledWith("admin-token");
     expect(result.items).toEqual([
-      expect.objectContaining({ name: "Kikiam", displayQuantity: 0, displayUnit: "SACK" }),
-      expect.objectContaining({ name: "Hotdog", displayQuantity: 5, displayUnit: "BOX" }),
+      expect.objectContaining({ brand: "Unbranded", name: "Kikiam", displayQuantity: 0, displayUnit: "SACK" }),
+      expect.objectContaining({ brand: "Acme", name: "Hotdog", displayQuantity: 5.5, displayUnit: "BOX" }),
       expect.objectContaining({ name: "Chicken", displayQuantity: 3, displayUnit: "KILO" }),
     ]);
   });

@@ -226,6 +226,8 @@ export const getInventoryMovementAnalysis = async (input = {}, accessToken, now 
     return {
       productId: row.product_id,
       name: row.product?.name,
+      brand: row.product?.brand?.name || "Unbranded",
+      imageUrl: row.product?.image_url || null,
       sku: row.product?.sku,
       baseUnit: row.base_unit || row.product?.unit,
       packageUnit: row.package_unit,

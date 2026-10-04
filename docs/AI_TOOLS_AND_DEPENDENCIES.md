@@ -83,6 +83,19 @@ and safe error code. Prompts, answers, credentials, and access tokens are not lo
 
 ## Available AI tools
 
+Product-backed chat responses also include an optional `data.products` array with
+`id`, `name`, `brand`, `imageUrl`, and optional `quantity` and `unit`. Cards come from
+queried backend records, are deduplicated by product ID, and are capped at 50.
+The mobile assistant renders these alongside the text answer, using a placeholder
+when an image is missing or fails to load. Catalog-only cards do not claim stock.
+
+Stock answers list each product as `Brand: Product name — quantity PACKAGE_UNIT`.
+Available base quantities are converted using the configured units per package,
+with fractional packages shown to two decimal places. Products without a brand
+use `Unbranded`; items without packaging use their base quantity and unit.
+Low-stock responses use this format deterministically, and the system prompt
+instructs model-generated stock answers to follow it as well.
+
 | Tool | Data returned |
 |---|---|
 | `search_products` | Up to 50 active catalog products, optionally filtered by name |
