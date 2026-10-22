@@ -1,4 +1,5 @@
 import { createAuthenticatedSupabaseClient } from "../config/supabase.js";
+import { measureRequest } from "../utils/request-timing.js";
 
 const requireRole = (...allowedRoles) => {
   if (allowedRoles.length === 0) {
@@ -14,11 +15,11 @@ const requireRole = (...allowedRoles) => {
       }
 
       const userClient = createAuthenticatedSupabaseClient(req.accessToken);
-      const { data: profile, error: profileError } = await userClient
+      const { data: profile, error: profileError } = await measureRequest("role", () => userClient
         .from("profiles")
         .select("role, is_active")
         .eq("id", req.user.id)
-        .maybeSingle();
+        .maybeSingle());
 
       if (profileError) throw profileError;
 

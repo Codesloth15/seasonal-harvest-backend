@@ -1,6 +1,6 @@
 # Backend Feature Progress
 
-Last reviewed: September 2, 2026
+Last reviewed: October 22, 2026
 
 Repository audit: September 2, 2026. The current routes, services, migrations,
 tests, and CI workflow were compared with every `PARTIAL` and `NONE` entry.
@@ -8,6 +8,11 @@ The completed atomic inventory adjustment, stock ledger, transaction
 pagination, AI assistant foundation, dashboard analytics endpoint, and global
 dashboard transaction log are represented below. Mobile session refresh and
 native-client Arcjet compatibility are also represented below.
+
+Performance review: October 22, 2026. The backend optimization changes are
+implemented and verified locally. Render has not been redeployed, the new SQL
+migration has not been applied remotely, and existing inline images have only
+been inspected in dry-run mode. Deployment-dependent work remains `PARTIAL`.
 
 ## Status definitions
 
@@ -52,26 +57,72 @@ request succeeded.
 |---|---|---|
 | Refreshable mobile sessions | `DONE` | `POST /api/v1/auth/refresh` rotates the access and refresh tokens and returns the authenticated user |
 | Native API clients pass bot detection | `DONE` | Arcjet bot detection explicitly allows programmatic, tool, and unknown native-client classifications; configuration tests cover the allowlist |
-| Blocked requests remain observable during tuning | `DONE` | Shield is currently in `DEMO` mode while bot detection remains live, so Shield findings are recorded without denying legitimate mobile traffic |
+| Blocked requests remain observable during tuning | `DONE` | Shield is currently in `DRY_RUN` mode while bot detection remains live, so Shield findings are recorded without denying legitimate mobile traffic |
 | Deployed mobile login compatibility | `DONE` | Native-compatible Arcjet configuration is deployed and the mobile sign-in flow reaches the authentication controller |
 | Deployed Home reporting | `DONE` | Inventory summary and low-stock endpoints returned successful live responses on September 2, 2026 |
+
+## API performance optimization: October 22, 2026
+
+Read-only production measurements found 58 products with 22 embedded data-URL
+images. The product list returned 1,226,615 bytes and took 2.70-4.22 seconds in
+the observed samples. Image URL fields accounted for about 97% of that JSON.
+Replacing embedded images with Storage URLs estimates roughly 35 KB of catalog
+JSON; this is a payload estimate, not a verified production latency improvement.
+Render already returned Brotli-compressed responses.
+
+Implemented locally:
+
+- Product creation/update converts inline images to public URLs in the existing
+  `product-images` bucket. Validation, failed-update recovery, and preservation
+  of uploads after uncertain network outcomes are covered by tests.
+- `npm run migrate:product-images` defaults to read-only inspection. Its dry run
+  found 22 valid inline images totaling 1,192,633 URL bytes. Apply mode requires
+  an active admin access token, uses revision checks, and verifies uncertain
+  database updates before removing uploaded objects.
+- Overlapping requests with the same bearer token share one pending Supabase
+  Auth lookup. Settled results and errors are discarded; subsequent requests
+  revalidate with Supabase.
+- API responses expose `Server-Timing` and `X-Request-ID`; slow-request logs
+  record route templates, dependency timings, and call counts without request
+  bodies, query strings, tokens, or image contents. `SLOW_REQUEST_MS` defaults
+  to 1000 milliseconds.
+- `20261022000001_optimize_api_query_paths.sql` adds transaction-date and
+  inventory-date indexes and evaluates caller-only RLS helper functions once
+  per statement, preserving policy permissions and grants.
+- `npm run benchmark:api` provides repeatable, sequential public-endpoint
+  measurements. Diagnosis and deployment steps are in [PERFORMANCE.md](PERFORMANCE.md).
+
+Validation: all 256 tests across 35 files pass, coverage thresholds pass, ESLint
+passes, and whitespace checks pass. The disposable PostgreSQL regression check
+verified equivalent access for six identities, unchanged policy/grant metadata,
+both index definitions, and statement-level helper evaluation.
+
+Remaining before live verification:
+
+1. Redeploy the backend to Render and apply the new Supabase migration.
+2. Run the existing-image migration with an active admin session after reviewing
+   its dry-run report, then compare response sizes and timings.
+3. Verify the Render plan and region; neither has been confirmed.
+4. Use deployed timing logs to attribute remaining delays. Follow-up work includes
+   reducing mobile foreground refetches and moving raw-row analytics aggregation
+   into PostgreSQL to avoid Supabase row-limit truncation.
 
 ## Progress summary
 
 | Area | Done | Partial | None |
 |---|---:|---:|---:|
 | Application foundation | 11 | 0 | 1 |
-| Authentication and security | 13 | 0 | 9 |
+| Authentication and security | 14 | 0 | 8 |
 | Inventory | 13 | 0 | 2 |
-| Products | 10 | 1 | 1 |
+| Products | 11 | 1 | 1 |
 | Brands | 8 | 0 | 2 |
 | Categories | 8 | 0 | 2 |
 | Users and roles | 5 | 0 | 6 |
 | Orders and fulfillment | 0 | 0 | 10 |
 | Notifications and workflows | 0 | 0 | 6 |
-| AI and analytics | 4 | 2 | 5 |
-| Quality and operations | 4 | 1 | 10 |
-| **Total** | **76** | **4** | **54** |
+| AI and analytics | 5 | 2 | 5 |
+| Quality and operations | 4 | 5 | 6 |
+| **Total** | **79** | **8** | **49** |
 
 The counts are a planning snapshot and should be updated whenever a feature changes status.
 
@@ -87,7 +138,7 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | Environment-specific configuration | `DONE` | `.env.<NODE_ENV>.local` is loaded by `config/env.js` |
 | Central error response middleware | `DONE` | `error.middleware.js` returns JSON errors |
 | Environment-based CORS allowlist | `DONE` | `CORS_ORIGINS` is required, parsed, deduplicated, and strictly validated |
-| Strict environment port validation | `DONE` | Startup requires an environment `PORT` integer between 1 and 65535; Railway injects it in production |
+| Strict environment port validation | `DONE` | Startup requires an environment `PORT` integer between 1 and 65535; Render supplies the production port |
 | Request body size limits | `DONE` | JSON request bodies are limited to 100 KB |
 | API version lifecycle policy | `NONE` | Document version compatibility and deprecation rules |
 | Graceful shutdown | `DONE` | `server.js` handles SIGTERM and SIGINT without coupling startup to the app |
@@ -102,9 +153,9 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | Password update with recovery token | `DONE` | `POST /api/v1/auth/reset-password` |
 | Current authenticated user | `DONE` | `GET /api/v1/auth/me` |
 | Global sign-out request | `DONE` | `POST /api/v1/auth/sign-out` |
-| Supabase bearer-token validation | `DONE` | `auth.middleware.js` calls `supabase.auth.getUser(token)` |
+| Supabase bearer-token validation | `DONE` | `auth.middleware.js` calls `supabase.auth.getUser(token)`; locally verified optimization shares only pending checks for overlapping same-token requests and always revalidates later requests |
 | Generic invalid-login response | `DONE` | Login does not reveal whether the email exists |
-| Global Arcjet protection | `DONE` | `/api/v1` mounts Arcjet before every feature router. Bot detection remains live and allows legitimate native/programmatic client classifications; Shield is in `DEMO` mode during compatibility tuning, and dedicated product-read rate limiting remains live. Arcjet configuration and decisions are unit tested. |
+| Global Arcjet protection | `DONE` | `/api/v1` mounts Arcjet before every feature router. Bot detection remains live and allows legitimate native/programmatic client classifications; Shield is in `DRY_RUN` mode during compatibility tuning, and dedicated product-read rate limiting remains live. Arcjet configuration and decisions are unit tested. |
 | Password minimum length validation | `DONE` | Sign-up and reset require at least 8 characters |
 | Frontend password-reset URL | `NONE` | Set `FRONTEND_URL` in development and production environments |
 | Supabase reset redirect allowlist | `NONE` | Allow `<FRONTEND_URL>/reset-password` in Supabase Auth settings |
@@ -155,6 +206,7 @@ The counts are a planning snapshot and should be updated whenever a feature chan
 | Duplicate manual SKUs | `DONE` | Manual SKU values may be reused; product IDs remain unique |
 | Product pagination | `NONE` | Add validated limit/cursor behavior |
 | Product image upload | `DONE` | The admin-protected multipart `image` flow, MIME/size validation, Storage policies, public URL persistence, rollback behavior, frontend migration away from Base64 JSON, and target-project upload were verified. |
+| Inline product image optimization | `PARTIAL` | Creation/update now uploads inline image data to Storage and persists short URLs; the dry-run migration identifies 22 existing images. Tests pass locally; Render redeployment and existing-image migration remain pending. |
 
 ## Brands
 
@@ -255,19 +307,19 @@ than relying on model training knowledge or unrestricted database access.
 |---|---|---|
 | ESLint configuration | `DONE` | ESLint is configured and authentication files pass linting |
 | Versioned Supabase migrations | `DONE` | Inventory, catalog, auth/role, RLS repair, and product-image Storage migrations are committed |
-| Automated unit tests and coverage | `DONE` | Vitest tests cover dashboard and movement analytics, reorder calculations, authenticated AI tools, deterministic package-based low-stock output, Claude tool loops, AI validation and rate limiting, safe audit metadata and provider errors, product-image upload, and error-response behavior, with enforced statement, branch, function, and line thresholds |
-| API integration tests | `NONE` | Test authentication, authorization, CRUD, RLS, and errors |
+| Automated unit tests and coverage | `DONE` | All 256 tests across 35 files and enforced coverage thresholds pass, including concurrent authentication, request timing, inline-image uploads and recovery, migration revision checks, analytics, and AI tools |
+| API integration tests | `PARTIAL` | HTTP request timing/isolation and stream startup are tested; the disposable PostgreSQL regression verifies policy equivalence for six identities. Full authentication, authorization, CRUD, Storage, and error integration coverage remains. |
 | End-to-end frontend/backend tests | `NONE` | Cover registration, login, recovery, and main business flows |
 | CI pipeline | `PARTIAL` | Pull requests to `main` run dependency installation, ESLint, and all Vitest tests; migration checks and secret scanning remain |
 | API schema/OpenAPI | `NONE` | Publish machine-readable request and response contracts |
-| Health endpoint | `DONE` | Public `/health` endpoint supports Railway deployment health checks |
-| Structured logging | `NONE` | Add request IDs and machine-readable security-aware logs |
+| Health endpoint | `DONE` | Public `/health` endpoint responds on the Render deployment; configure it as the Render health-check path |
+| Structured logging | `PARTIAL` | API request IDs and JSON slow-request logs are mounted and locally tested; route templates exclude sensitive request details. Production deployment and authentication audit events remain. |
 | Error monitoring | `NONE` | Configure alerting without exposing secrets or personal data |
-| Metrics and alerting | `NONE` | Track latency, errors, auth failures, and rate limits |
+| Metrics and alerting | `PARTIAL` | Locally tested `Server-Timing`, dependency call counts, slow-request threshold, and benchmark script provide latency diagnostics; production verification, persistent metrics, and alerting remain. |
 | Backup and restore verification | `NONE` | Document and regularly test recovery procedures |
 | Dependency vulnerability scanning | `NONE` | Add automated audit and update policy |
 | Secret scanning | `NONE` | Scan commits and rotate any exposed credentials |
-| Deployment runbook | `NONE` | Document configuration, migrations, rollback, and incident steps |
+| Deployment runbook | `PARTIAL` | `docs/PERFORMANCE.md` documents Render health checks, timing configuration, the SQL migration, image cleanup, and before/after measurements; general rollback and incident procedures remain. |
 
 ## Security-first implementation order
 

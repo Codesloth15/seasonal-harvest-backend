@@ -223,8 +223,9 @@ export const getAllProducts = async (filters = {}) => {
 /**
  * Get Product By ID
  */
-export const getProductById = async (id) => {
-  const { data, error } = await supabase
+export const getProductById = async (id, accessToken) => {
+  const client = accessToken ? createAuthenticatedSupabaseClient(accessToken) : supabase;
+  const { data, error } = await client
     .from(PRODUCT_TABLE)
     .select(PRODUCT_SELECT)
     .eq("id", id)

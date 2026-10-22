@@ -47,6 +47,7 @@ export const corsOptions = {
   credentials: true,
   methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Authorization", "Content-Type"],
+  exposedHeaders: ["Server-Timing", "X-Request-ID"],
   origin(origin, callback) {
     // Requests from server-side clients, health checks, and CLI tools may not
     // include an Origin header. CORS is a browser-enforced control.

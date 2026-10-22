@@ -13,10 +13,12 @@ import eventsRouter from "./routes/events.routes.js";
 
 import errorMiddleware from "./middleware/error.middleware.js";
 import arcjetMiddleware from "./middleware/arcjet.middleware.js";
+import requestTiming from "./middleware/request-timing.middleware.js";
 
 const app = express();
 
 app.disable("x-powered-by");
+app.use("/api/v1", requestTiming);
 app.use(cors(corsOptions));
 app.use(express.json({ limit: "100kb" }));
 // Every current and future API route, including reads, uses Arcjet.

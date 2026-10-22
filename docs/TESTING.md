@@ -44,7 +44,9 @@ The HTML report is generated under `coverage/` and is excluded from Git.
 | `tests/services/inventory.service.test.js` | Inventory validation, package conversion configuration, transaction filters, authenticated writes, and stock adjustment |
 | `tests/services/analytics.service.test.js` | Catalog/inventory KPIs, movement buckets, transaction-log filters/pagination, default dates, and invalid analytics filters |
 
-The suite contains 155 passing tests across 27 test files. Coverage is enforced
+The suite includes HTTP request timing/isolation and streaming startup,
+concurrent authentication, inline-image validation and Storage upload recovery,
+and a dry-run image migration with revision checks. Coverage is enforced
 for the security-sensitive and refactored modules, including analytics access,
 date validation, aggregation, and Arcjet request decisions.
 

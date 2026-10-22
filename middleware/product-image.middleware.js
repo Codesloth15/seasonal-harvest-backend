@@ -1,12 +1,7 @@
 import multer from "multer";
+import { ALLOWED_PRODUCT_IMAGE_TYPES, MAX_PRODUCT_IMAGE_SIZE } from "../utils/product-image.js";
 
-export const MAX_PRODUCT_IMAGE_SIZE = 5 * 1024 * 1024;
-export const ALLOWED_PRODUCT_IMAGE_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/webp",
-  "image/avif",
-]);
+export { ALLOWED_PRODUCT_IMAGE_TYPES, MAX_PRODUCT_IMAGE_SIZE };
 
 const productImageUpload = multer({
   storage: multer.memoryStorage(),
