@@ -1,8 +1,9 @@
 import supabase from "../config/supabase.js";
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from "../config/env.js";
+import { timedSupabaseFetch } from "../utils/request-timing.js";
 
 const authRequest = async (path, options = {}) => {
-  const response = await fetch(`${SUPABASE_URL}/auth/v1${path}`, {
+  const response = await timedSupabaseFetch(`${SUPABASE_URL}/auth/v1${path}`, {
     ...options,
     headers: {
       apikey: SUPABASE_ANON_KEY,

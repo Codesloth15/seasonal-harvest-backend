@@ -1,8 +1,9 @@
 import { aj, productReadAj } from "../config/arcjet.js";
+import { measureRequest } from "../utils/request-timing.js";
 
-export const createArcjetMiddleware = (client) => async (req, res, next) => {
+export const createArcjetMiddleware = (client, timingName = "arcjet") => async (req, res, next) => {
   try {
-    const decision = await client.protect(req);
+    const decision = await measureRequest(timingName, () => client.protect(req));
 
     if (decision.isDenied()) {
       if (decision.reason.isRateLimit()) {
@@ -26,6 +27,6 @@ export const createArcjetMiddleware = (client) => async (req, res, next) => {
 
 const arcjetMiddleware = createArcjetMiddleware(aj);
 
-export const productReadArcjetMiddleware = createArcjetMiddleware(productReadAj);
+export const productReadArcjetMiddleware = createArcjetMiddleware(productReadAj, "catalog_rate_limit");
 
 export default arcjetMiddleware;

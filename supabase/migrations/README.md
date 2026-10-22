@@ -129,6 +129,29 @@ not replace deployment verification against Supabase Auth and the full schema.
 Drops the case-insensitive unique SKU index and replaces it with a non-unique
 lookup index. Product IDs remain the canonical unique identifiers.
 
+### `20261022000001_optimize_api_query_paths.sql`
+
+Adds standalone `created_at DESC` indexes for global inventory transaction
+history/date filters and inventory list ordering. Wraps caller-only RLS helpers
+in scalar subqueries so PostgreSQL can evaluate them once per statement while
+preserving policy predicates, roles, commands, and grants.
+
+Apply with `supabase db push` to the backend's linked Supabase project; a Render
+redeploy alone does not apply database migrations. Schedule this migration when
+writes are quiet because standard index creation briefly blocks writes to the
+indexed tables. Compare query plans and API timings after applying it.
+
+Local regression check (requires `psql` and a disposable local cluster; creates
+and drops its own database):
+
+```sh
+node tests/integration/api-query-paths.mjs postgresql://postgres@127.0.0.1:55439/postgres
+```
+
+Checks before/after reads and writes for anonymous, employee, admin, super-admin,
+inactive, and missing-profile identities, unchanged policy/grant metadata,
+InitPlan use, both indexes, and safe reapplication using minimal table fixtures.
+
 ## Database Schema Reference
 
 ### Inventory Table (current normalized schema)

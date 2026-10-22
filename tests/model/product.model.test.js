@@ -4,8 +4,11 @@ const { publicBuilder, userBuilder, createAuthenticatedSupabaseClient } = vi.hoi
   const publicBuilder = {
     select: vi.fn(),
     order: vi.fn(),
+    eq: vi.fn(),
+    maybeSingle: vi.fn(),
   };
   publicBuilder.select.mockReturnValue(publicBuilder);
+  publicBuilder.eq.mockReturnValue(publicBuilder);
 
   const userBuilder = {
     insert: vi.fn(),
@@ -39,6 +42,7 @@ import {
   createProduct,
   deleteProduct,
   getAllProducts,
+  getProductById,
   updateProduct,
 } from "../../model/product.model.js";
 
@@ -70,6 +74,36 @@ describe("product model", () => {
     expect(createAuthenticatedSupabaseClient).toHaveBeenCalledWith("token");
     expect(userBuilder.delete).toHaveBeenCalledWith();
     expect(userBuilder.eq).toHaveBeenCalledWith("id", "product-id");
+  });
+
+  it("keeps public product lookups on the existing client when no token is provided", async () => {
+    publicBuilder.maybeSingle.mockResolvedValue({ data: { id: "product-id" }, error: null });
+
+    await expect(getProductById("product-id")).resolves.toEqual({ id: "product-id", currency: "PHP" });
+
+    expect(createAuthenticatedSupabaseClient).not.toHaveBeenCalled();
+    expect(publicBuilder.select).toHaveBeenCalledWith("*, brand:brands(id, name, logo_url, is_active)");
+    expect(publicBuilder.eq).toHaveBeenCalledWith("id", "product-id");
+    expect(userBuilder.maybeSingle).not.toHaveBeenCalled();
+  });
+
+  it("uses the supplied token for authenticated product readback", async () => {
+    const product = { id: "product-id", image_url: "https://example.test/new.png" };
+    userBuilder.maybeSingle.mockResolvedValue({ data: product, error: null });
+
+    await expect(getProductById("product-id", "token")).resolves.toEqual({ ...product, currency: "PHP" });
+
+    expect(createAuthenticatedSupabaseClient).toHaveBeenCalledWith("token");
+    expect(userBuilder.select).toHaveBeenCalledWith("*, brand:brands(id, name, logo_url, is_active)");
+    expect(userBuilder.eq).toHaveBeenCalledWith("id", "product-id");
+    expect(publicBuilder.maybeSingle).not.toHaveBeenCalled();
+  });
+
+  it("propagates an authenticated product readback failure", async () => {
+    const failure = new Error("read unavailable");
+    userBuilder.maybeSingle.mockResolvedValue({ data: null, error: failure });
+
+    await expect(getProductById("product-id", "token")).rejects.toBe(failure);
   });
 
   it("creates a product with a per-piece price and bale conversion", async () => {
